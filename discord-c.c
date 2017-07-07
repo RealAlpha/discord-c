@@ -2,9 +2,11 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
+#include "pthread.h"
 
 int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t length);
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
+void *heartbeatFunction(void *websocket);
 
 int main(int argc, char *argv[])
 {
@@ -37,18 +39,27 @@ int main(int argc, char *argv[])
 	//else
 	//	websocket_connect(myWebSocket, argv[1]);
 	printf("Sent request!\n");
+	pthread_t heartbeatThread;
+	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)myWebSocket);
+	
+	// Loop to keep the main thread occupied + websocket in service
 	while (1)
 	{
-		char *packet = "{\"op\": 1, \"d\": 251}";
-		websocket_send(myWebSocket, packet, strlen(packet), 0);
 		websocket_think(myWebSocket);
-		usleep(41250*1000);
+		usleep(500*1000);
 	}
 }
 
 int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t length) {
+	printf("\ncallback_ws\n");
+	//return 0;
+	// Add a \0 to a copy of the data buffer
+	char *buffer = malloc(length + 1);
+	strncpy(buffer, data, length);
+	buffer[length] = '\0';
+
 	//data[1] = '\0';
-	
+	printf("callback function\n\n");
 	printf("\n\nrecieve callback!\nContent:\n%s\n\n", data);
 	return 0;
 }
@@ -60,4 +71,24 @@ int client_ws_connection_error_callback(client_websocket_t* socket, char* reason
 
 	//client_disconnect(client);
 	return 0;
+}
+
+// Function that keeps repeatively sending a heartbeat
+void *heartbeatFunction(void *websocket)
+{
+	client_websocket_t *myWebSocket = (client_websocket_t*)websocket;
+
+	while (1)
+	{
+		printf("Sending heartbeat...\n");
+		// TODO figure out how to insert the correct d value
+
+		// Create an operation 1 (=heartbeat) packet and send it off
+		char *packet = "{\"op\": 1, \"d\": 251}";
+		websocket_send(myWebSocket, packet, strlen(packet), 0);
+		//websocket_think(myWebSocket);
+
+		// Wait heartbeat interval seconds; TODO make this not hard-coded
+		usleep(41250*1000);
+	}
 }

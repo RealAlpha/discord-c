@@ -1,5 +1,8 @@
 .PHONY: ALL
 
 ALL:
-	clang -ggdb3 discord-c.c websocket.c -lwebsockets -lssl -lcrypto -o test
+# Set the library search path
+	export LD_LIBRARY_PATH=.
+# Comiple
+	clang -ggdb3 discord-c.c websocket.c -lwebsockets -lssl -lcrypto -lpthread -o test
 
