@@ -68,6 +68,21 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 	{
 		int opcode = opCodeItem->valueint;
 		printf("Opcode: %i", opcode);
+		switch(opcode)
+		{
+			case 0:
+				// Dispatch
+				break;
+			case 9:
+				// Invalid Session
+				break;
+			case 10:
+				// Hello
+				break;
+			case 11:
+				// Heartbeat ACK
+				break;
+		}
 	}
 
 	return 0;
