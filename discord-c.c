@@ -9,6 +9,9 @@ int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t le
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
 void *heartbeatFunction(void *websocket);
 
+void handleEventDispatch(cJSON *root);
+void handleIdentify(client_websocket_t *socket);
+
 int main(int argc, char *argv[])
 {
 	printf("Websocket thing starting up!");
@@ -72,15 +75,22 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 		{
 			case 0:
 				// Dispatch
+				// Offload handling to dedicated function
+				handleEventDispatch(root);
 				break;
 			case 9:
 				// Invalid Session
+				// Invalid token / tried to auth too often!
+				printf("Invalid session (#9)! Is your token valid?");
 				break;
 			case 10:
 				// Hello
+				// Send the identify payload
+				handleIdentify(socket);
 				break;
 			case 11:
 				// Heartbeat ACK
+				// Don't do anything yet - the "d" doesn't seem to contain any info.
 				break;
 		}
 	}
@@ -115,4 +125,14 @@ void *heartbeatFunction(void *websocket)
 		// Wait heartbeat interval seconds; TODO make this not hard-coded
 		usleep(41250*1000);
 	}
+}
+
+void handleEventDispatch(cJSON *root)
+{
+	printf("Recieved even displatch!");
+}
+
+void handleIdentify(client_websocket_t *socket)
+{
+	printf("Handling Identification!\n");
 }
