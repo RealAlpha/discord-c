@@ -3,6 +3,7 @@
 #include "stdlib.h"
 #include "string.h"
 #include "pthread.h"
+#include "cJSON.h"
 
 int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t length);
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
@@ -57,6 +58,18 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 	buffer[length] = '\0';
 
 	printf("\n\nRecieved callback!\nContent:\n%s\n\n", data);
+	
+	// Parse the json using cJSON
+	cJSON *root = cJSON_Parse(data);
+	
+	cJSON *opCodeItem = cJSON_GetObjectItemCaseSensitive(root, "op");
+
+	if(cJSON_IsNumber(opCodeItem))
+	{
+		int opcode = opCodeItem->valueint;
+		printf("Opcode: %i", opcode);
+	}
+
 	return 0;
 }
 
