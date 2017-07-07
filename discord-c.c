@@ -47,6 +47,8 @@ int main(int argc, char *argv[])
 }
 
 int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t length) {
+	//data[1] = '\0';
+	
 	printf("\n\nrecieve callback!\nContent:\n%s\n\n", data);
 	return 0;
 }

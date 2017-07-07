@@ -78,9 +78,12 @@ int discord_protocol(struct lws* wsi, enum lws_callback_reasons reason,
 			memcpy(client->_current_packet + old_length, in, len);
 			
 			if (lws_is_final_fragment(wsi)) {
+				// Add a \0 terminator
+				client->_current_packet = realloc(client->_current_packet, client->_current_packet_length + 1);
+				client->_current_packet[client->_current_packet_length] = '\0';
+
 				char* data = client->_current_packet;
 				size_t data_len = client->_current_packet_length;
-				data[data_len] = '\0';
 
 				int success = 0;
 
