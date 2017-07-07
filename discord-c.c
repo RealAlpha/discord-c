@@ -39,8 +39,10 @@ int main(int argc, char *argv[])
 	printf("Sent request!\n");
 	while (1)
 	{
+		char *packet = "{\"op\": 1, \"d\": 251}";
+		websocket_send(myWebSocket, packet, strlen(packet), 0);
 		websocket_think(myWebSocket);
-		sleep(1);
+		usleep(41250*1000);
 	}
 }
 
