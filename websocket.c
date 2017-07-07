@@ -7,10 +7,7 @@
 
 int discord_protocol(struct lws* wsi, enum lws_callback_reasons reason,
 		void* user, void* in, size_t len) {
-	printf("Recieved callback in websocket \"lib\"!\n");
-	if(reason == LWS_CALLBACK_RECEIVE)
-		printf("Due to recieve!\n");
-	printf("%i\n", reason);
+
 	client_websocket_t* client = (client_websocket_t*)user;
 
 	/* TODO: figure out what's causing this to degfault */
@@ -59,12 +56,6 @@ int discord_protocol(struct lws* wsi, enum lws_callback_reasons reason,
 		}
 		case LWS_CALLBACK_CLIENT_RECEIVE:
 		{
-			if (!client)
-			{
-				printf("Invalid client!\n");
-				return -1;
-			}
-			printf("Recieved something!");
 			size_t old_length = client->_current_packet_length;
 			size_t new_length = old_length + len;
 			void* new_data = realloc(client->_current_packet, new_length);

@@ -51,16 +51,12 @@ int main(int argc, char *argv[])
 }
 
 int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t length) {
-	printf("\ncallback_ws\n");
-	//return 0;
 	// Add a \0 to a copy of the data buffer
 	char *buffer = malloc(length + 1);
 	strncpy(buffer, data, length);
 	buffer[length] = '\0';
 
-	//data[1] = '\0';
-	printf("callback function\n\n");
-	printf("\n\nrecieve callback!\nContent:\n%s\n\n", data);
+	printf("\n\nRecieved callback!\nContent:\n%s\n\n", data);
 	return 0;
 }
 
