@@ -129,7 +129,35 @@ void *heartbeatFunction(void *websocket)
 
 void handleEventDispatch(cJSON *root)
 {
-	printf("Recieved even displatch!");
+	printf("Recieved event displatch!\n");
+	
+	// Attempt to get the event (the "t" property)
+	cJSON *eventNameItem = cJSON_GetObjectItemCaseSensitive(root, "t");
+	
+	// Try to grab the event's name and call the correct actions based upon the event.
+	if(cJSON_IsString(eventNameItem))
+	{
+		char *eventName = eventNameItem->valuestring;
+		
+		if (strcmp(eventName, "MESSAGE_CREATE") == 0)
+		{
+			// A new message has been posted
+		}
+		else if (strcmp(eventName, "READY") == 0)
+		{
+			// Get's returned after OP IDENTIFY. Recieved information about guilds/users etc & ready to start recieving messages/etc.
+		}
+		else
+		{
+			// Unsupported event!
+			printf("Unsupported event! Event: %s\n", eventName);
+		}
+	}
+	else
+	{
+		// The event wasen't a string, log an error to stderr as it's probably been corrupted
+		fprintf(stderr, "Recieved malformed event dispatch!");
+	}
 }
 
 void handleIdentify(client_websocket_t *socket)
