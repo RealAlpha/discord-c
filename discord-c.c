@@ -11,6 +11,72 @@ void *heartbeatFunction(void *websocket);
 
 void handleEventDispatch(cJSON *root);
 void handleIdentify(client_websocket_t *socket);
+void handleOnReady(cJSON *root);
+
+// Stores the information associated with a connection (token, websocket, etc)
+struct connection
+{
+
+	// TODO
+};
+
+struct user
+{
+	// Username
+	char *username;
+	// id
+	uint64_t id;
+	// TODO Add more fields
+};
+
+struct server_user
+{
+	// User information
+	struct user user;
+	
+	// TODO roles & other server specific stuff
+	
+	// Linked list next node
+	struct server_user *next;
+};
+
+struct server_channel
+{
+	// Channel name
+	char *name;
+	// Channel topic
+	char *topic;
+	// Channel id
+	uint64_t id;
+
+	// Linked list next node
+	struct server_channel *next;
+};
+
+
+struct server
+{
+	// Server name
+	char *name;
+	// Channels
+	struct server_channel channels;
+	// Users
+	struct server_user users;
+
+	// Linked list next node
+	struct server *next;
+};
+
+typedef void (*discord_login_complete_callback)(struct connection connection, struct server servers[]);
+//typedef int (*websocket_connection_error_callback)(client_websocket_t* client, char* reason, size_t length);
+
+struct discord_callbacks {
+	discord_login_complete_callback login_complete;
+//	websocket_connection_error_callback on_connection_error;
+};
+
+// Ugly global variable for CLI callbacks
+
 
 int main(int argc, char *argv[])
 {
@@ -33,9 +99,6 @@ int main(int argc, char *argv[])
 		sleep(1);
 	}
 	
-	
-
-	printf("Sent request!\n");
 	pthread_t heartbeatThread;
 	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)myWebSocket);
 	
@@ -139,6 +202,7 @@ void handleEventDispatch(cJSON *root)
 		else if (strcmp(eventName, "READY") == 0)
 		{
 			// Get's returned after OP IDENTIFY. Recieved information about guilds/users etc & ready to start recieving messages/etc.
+			handleOnReady(root);
 		}
 		else
 		{
@@ -160,4 +224,11 @@ void handleIdentify(client_websocket_t *socket)
 
 	websocket_send(socket, request, strlen(request), 0);
 
+}
+
+void handleOnReady(cJSON *root)
+{
+	// TODO dispatch the heartbeat thread from here instead of in main();
+	printf("Successfully established connection!\n");
+	
 }
