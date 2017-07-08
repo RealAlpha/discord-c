@@ -32,16 +32,9 @@ int main(int argc, char *argv[])
 		websocket_think(myWebSocket);
 		sleep(1);
 	}
-	printf("About to send request!\n");
-	char *request =  "{\"op\":2,\"d\":{\"token\":\"Mjg3MTc2MDM1MTUyMjk3OTg1.DD_c7w.V9NC_tbWiUZYv0jTEGTgyATLl6Q\",\"properties\":{\"$os\":\"linux\",\"$browser\":\"my_library_name\",\"$device\":\"my_library_name\",\"$referrer\":\"\",\"$referring_domain\":\"\"},\"compress\":false,\"large_threshold\":250,\"shard\":[1,10]}}";
+	
+	
 
-	websocket_send(myWebSocket, request, strlen(request), 0);
-	//websocket_think(myWebSocket);
-	//sleep(10);
-	//websocket_disconnect(myWebSocket);
-	//return -1;
-	//else
-	//	websocket_connect(myWebSocket, argv[1]);
 	printf("Sent request!\n");
 	pthread_t heartbeatThread;
 	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)myWebSocket);
@@ -163,4 +156,8 @@ void handleEventDispatch(cJSON *root)
 void handleIdentify(client_websocket_t *socket)
 {
 	printf("Handling Identification!\n");
+	char *request =  "{\"op\":2,\"d\":{\"token\":\"Mjg3MTc2MDM1MTUyMjk3OTg1.DD_c7w.V9NC_tbWiUZYv0jTEGTgyATLl6Q\",\"properties\":{\"$os\":\"linux\",\"$browser\":\"my_library_name\",\"$device\":\"my_library_name\",\"$referrer\":\"\",\"$referring_domain\":\"\"},\"compress\":false,\"large_threshold\":250,\"shard\":[1,10]}}";
+
+	websocket_send(socket, request, strlen(request), 0);
+
 }
