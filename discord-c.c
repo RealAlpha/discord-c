@@ -9,9 +9,9 @@ int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t le
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
 void *heartbeatFunction(void *websocket);
 
-void handleEventDispatch(cJSON *root);
+void handleEventDispatch(client_websocket_t *socket, cJSON *root);
 void handleIdentify(client_websocket_t *socket);
-void handleOnReady(cJSON *root);
+void handleOnReady(client_websocket_t *socket, cJSON *root);
 
 // Stores the information associated with a connection (token, websocket, etc)
 struct connection
@@ -67,7 +67,7 @@ struct server
 	struct server *next;
 };
 
-typedef void (*discord_login_complete_callback)(struct connection connection, struct server servers[]);
+typedef void (*discord_login_complete_callback)(struct connection connection, struct server servers);
 //typedef int (*websocket_connection_error_callback)(client_websocket_t* client, char* reason, size_t length);
 
 struct discord_callbacks {
@@ -76,7 +76,7 @@ struct discord_callbacks {
 };
 
 // Ugly global variable for CLI callbacks
-
+struct discord_callbacks cli_callbacks;
 
 int main(int argc, char *argv[])
 {
@@ -132,7 +132,7 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 			case 0:
 				// Dispatch
 				// Offload handling to dedicated function
-				handleEventDispatch(root);
+				handleEventDispatch(socket, root);
 				break;
 			case 9:
 				// Invalid Session
@@ -183,7 +183,7 @@ void *heartbeatFunction(void *websocket)
 	}
 }
 
-void handleEventDispatch(cJSON *root)
+void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 {
 	printf("Recieved event displatch!\n");
 	
@@ -202,7 +202,7 @@ void handleEventDispatch(cJSON *root)
 		else if (strcmp(eventName, "READY") == 0)
 		{
 			// Get's returned after OP IDENTIFY. Recieved information about guilds/users etc & ready to start recieving messages/etc.
-			handleOnReady(root);
+			handleOnReady(socket, root);
 		}
 		else
 		{
@@ -226,9 +226,31 @@ void handleIdentify(client_websocket_t *socket)
 
 }
 
-void handleOnReady(cJSON *root)
+void handleOnReady(client_websocket_t *socket, cJSON *root)
 {
 	// TODO dispatch the heartbeat thread from here instead of in main();
 	printf("Successfully established connection!\n");
 	
+	// Required? Get the data part.
+	root = cJSON_GetObjectItemCaseSensitive(root, "d");
+	// Get the private messages / DMs
+	cJSON *DMs = cJSON_GetObjectItemCaseSensitive(root, "private_channels");
+	
+	// Get the friends
+	cJSON *friends = cJSON_GetObjectItemCaseSensitive(root, "relationships");
+	
+	// Get the servers the user is in
+	cJSON *guilds = cJSON_GetObjectItemCaseSensitive(root, "guilds");
+	
+	// Request further info about guilds
+	cJSON *guild = guilds->child;
+
+	while (guild)
+	{
+		cJSON *guildNameObject = cJSON_GetObjectItemCaseSensitive(guild, "name");
+		printf("Guild name: %s\n", guildNameObject->valuestring);
+
+		guild = guild->next;
+	}
+
 }
