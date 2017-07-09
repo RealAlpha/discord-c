@@ -29,6 +29,8 @@ struct connection
 {
 
 	// TODO
+	client_websocket_t *webSocket;
+
 };
 
 struct user
@@ -107,11 +109,12 @@ struct server
 	struct server *next;
 };
 
-typedef void (*discord_login_complete_callback)(struct connection connection, struct server servers);
-//typedef int (*websocket_connection_error_callback)(client_websocket_t* client, char* reason, size_t length);
+typedef void (*discord_login_complete_callback)(struct connection connection, struct server *servers);
+typedef void (*discord_memberfetch_complete_callback)(struct server servers);
 
 struct discord_callbacks {
 	discord_login_complete_callback login_complete;
+	discord_memberfetch_complete_callback users_found;
 //	websocket_connection_error_callback on_connection_error;
 };
 
@@ -126,7 +129,7 @@ void freeRoles(struct roles *node);
 client_websocket_t *globWebSocket = NULL;
 
 // Ugly global variable for CLI callbacks
-struct discord_callbacks cli_callbacks;
+struct discord_callbacks *cli_callbacks = NULL;
 // Even more ugly global variable that stores the servers linked list. Needed to go from server id -> server linked list in some functions :(
 struct server *glob_servers = NULL;
 // Super ugly global variable to store if it's currently awaiting member fragments
@@ -162,9 +165,9 @@ int main(int argc, char *argv[])
 	globWebSocket = myWebSocket; // TODO remove?
 	
 	// TODO Make this grab the gateway instead of hard-coding it
-	//if (argc != 2)
 	websocket_connect(myWebSocket, "wss://gateway.discord.gg/?v=5&encoding=json");
-	//sleep(20);
+
+	// Allow it some time to connect
 	for (int i = 0; i < 10; i++)
 	{
 		websocket_think(myWebSocket);
@@ -199,6 +202,9 @@ int main(int argc, char *argv[])
 		websocket_think(myWebSocket);
 		usleep(500*1000);
 	}
+
+	// TODO remove the above "bloat" into functions/threads
+	
 }
 
 int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t length) {
@@ -419,6 +425,16 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 		websocket_send(socket, packet, strlen(packet), 0);
 		guild = guild->next;
 	}
+	
+	struct connection connection;
+	connection.webSocket = socket;
+
+	// Successfully connected! Callback time
+	if (cli_callbacks != NULL && cli_callbacks->login_complete != NULL)
+		cli_callbacks->login_complete(connection, glob_servers);
+
+	// TODO Want to free now or later? AKA allow persistence? Posibly required!
+	//free(connection);
 
 }
 
@@ -628,5 +644,6 @@ void finishedRetrievingMembers()
 {
 	isRetrievingMembers = 0;
 	printf("Finished retrieving members!\n");
+
 }
 
