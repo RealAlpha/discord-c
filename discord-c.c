@@ -16,6 +16,7 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root);
 void handleIdentify(client_websocket_t *socket);
 void handleOnReady(client_websocket_t *socket, cJSON *root);
 void handleGuildMemberChunk(cJSON *root);
+void handleMessagePosted(cJSON *root);
 
 /*
 // Cleanup
@@ -112,10 +113,12 @@ struct server
 
 typedef void (*discord_login_complete_callback)(struct connection connection, struct server *servers);
 typedef void (*discord_memberfetch_complete_callback)(struct server *servers);
+typedef void (*discord_message_posted_callback)(struct message message); // TODO should this be a pointer instead? Would that add a ton of overhead to the cleanup?
 
 struct discord_callbacks {
 	discord_login_complete_callback login_complete;
 	discord_memberfetch_complete_callback users_found;
+	discord_message_posted_callback message_posted;
 //	websocket_connection_error_callback on_connection_error;
 };
 
@@ -326,6 +329,7 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 		if (strcmp(eventName, "MESSAGE_CREATE") == 0)
 		{
 			// A new message has been posted
+			handleMessagePosted(root);
 		}
 		else if (strcmp(eventName, "READY") == 0)
 		{
@@ -678,3 +682,40 @@ void finishedRetrievingMembers()
 	//cli_callbacks->users_found(glob_servers);
 }
 
+void handleMessagePosted(cJSON *root)
+{
+	root = cJSON_GetObjectItemCaseSensitive(root, "d");
+
+	cJSON *authorObject = cJSON_GetObjectItemCaseSensitive(root, "author");
+	cJSON *contentObject = cJSON_GetObjectItemCaseSensitive(root, "content");
+	cJSON *channelIdObject = cJSON_GetObjectItemCaseSensitive(root, "channel_id");
+
+	// TODO add webhook handling
+	cJSON *userIdObject = cJSON_GetObjectItemCaseSensitive(authorObject, "id");
+
+	uint64_t userId = strtoull((const char *)userIdObject->valuestring, NULL, 10);
+	uint64_t channelId = strtoull((const char *)channelIdObject->valuestring, NULL, 10);
+
+	// Attempt to find the correct server/channel
+	struct server *server = glob_servers;
+	while(server)
+	{
+		struct server_channel *_channel = server->channels;
+		while (_channel)
+		{
+			if (channelId == _channel->id)
+			{
+				printf("Found channel with name: %s\n", _channel->name);
+			}
+			
+			_channel = _channel->next;
+		}
+
+		server = server->next;
+	}
+	// TODO early quit? If it's already found the channel there is no need to itterate over the rest!
+
+	// Try to find the user.
+
+	//printf("New message:\n%s (by: %s (%lu))", 
+}
