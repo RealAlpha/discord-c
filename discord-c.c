@@ -12,6 +12,7 @@ void *heartbeatFunction(void *websocket);
 void handleEventDispatch(client_websocket_t *socket, cJSON *root);
 void handleIdentify(client_websocket_t *socket);
 void handleOnReady(client_websocket_t *socket, cJSON *root);
+void handleGuildMemberChunk(cJSON *root);
 
 // Stores the information associated with a connection (token, websocket, etc)
 struct connection
@@ -27,6 +28,20 @@ struct user
 	// id
 	uint64_t id;
 	// TODO Add more fields
+};
+
+// Struct that stores a role
+struct role
+{
+	uint64_t id;
+	// TODO is uint32_t large enough?
+	uint32_t position;
+	uint32_t permissions;
+
+	// Boolean!
+	uint8_t mentionable;
+
+	struct role *next;
 };
 
 struct server_user
@@ -204,6 +219,10 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 			// Get's returned after OP IDENTIFY. Recieved information about guilds/users etc & ready to start recieving messages/etc.
 			handleOnReady(socket, root);
 		}
+		else if (strcmp(eventName, "GUILD_MEMBERS_CHUNK") == 0)
+		{
+			handleGuildMemberChunk(root);
+		}
 		else
 		{
 			// Unsupported event!
@@ -248,9 +267,52 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 	while (guild)
 	{
 		cJSON *guildNameObject = cJSON_GetObjectItemCaseSensitive(guild, "name");
-		printf("Guild name: %s\n", guildNameObject->valuestring);
+		cJSON *guildIdObject = cJSON_GetObjectItemCaseSensitive(guild, "id");
+		
+		uint64_t guildId = strtoull((const char *)guildIdObject->valuestring, NULL, 10);
+		
+		if(cJSON_IsNumber(guildIdObject))
+		{
+			guildId = (uint64_t)guildIdObject->valuedouble;
+		}
+		else
+		{
+			printf("Error while processing JSON!\n");
+		}
+		
+		printf("Guild name: %s (id: %lu)\n", guildNameObject->valuestring, guildId);
 
+		// TODO Is 256 chars long enough/too long/etc?
+		char packet[256];
+
+		sprintf(packet, "{\"op\":8, \"d\":{\"guild_id\": \"%lu\", \"query\": \"\", \"limit\": 0}}", guildId);
+		printf("Request packet: %s\n", packet);
+		websocket_send(socket, packet, strlen(packet), 0);
 		guild = guild->next;
 	}
 
+}
+
+void handleGuildMemberChunk(cJSON *root)
+{
+	root = cJSON_GetObjectItemCaseSensitive(root, "d");
+
+	cJSON *guildIdItem = cJSON_GetObjectItemCaseSensitive(root, "guild_id");
+	cJSON *membersObject = cJSON_GetObjectItemCaseSensitive(root, "members");
+	
+	cJSON *memberObject = membersObject->child;
+	
+	// Linked list to hold the members in this chunk
+	struct user *members;
+
+	while (memberObject)
+	{
+		cJSON *userObject = cJSON_GetObjectItemCaseSensitive(memberObject, "user");
+		cJSON *rolesObject = cJSON_GetObjectItemCaseSensitive(memberObject, "roles");
+		cJSON *nicknameObject = cJSON_GetObjectItemCaseSensitive(memberObject, "nick");
+	}
+
+	uint64_t guildId = strtoull((const char *)guildIdItem->valuestring, NULL, 10);
+
+	printf("Recieved member chunk for guild id %lu", guildId);
 }
