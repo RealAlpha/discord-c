@@ -505,7 +505,7 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 		// TODO Is 256 chars long enough/too long/etc?
 		char packet[256];
 
-		sprintf(packet, "{\"op\":8, \"d\":{\"guild_id\": \"%lu\", \"query\": \"\", \"limit\": 300}}", guildId);
+		sprintf(packet, "{\"op\":8, \"d\":{\"guild_id\": \"%lu\", \"query\": \"\", \"limit\": 0}}", guildId);
 		printf("Request packet: %s\n", packet);
 		websocket_send(socket, packet, strlen(packet), 0);
 		guild = guild->next;
@@ -605,8 +605,8 @@ void handleGuildMemberChunk(cJSON *root)
 		strcpy(user->username, usernameObject->valuestring);
 		
 		// Convert the id string into a decimal uint64_t and store it in the id field
-		user->id = strtoull((const char *)usernameObject->valuestring, NULL, 10);
-		
+		user->id = strtoull((const char *)userIdObject->valuestring, NULL, 10);
+
 		// Users' roles
 		struct roles *roles = NULL;
 
@@ -792,7 +792,7 @@ void handleMessagePosted(cJSON *root)
 	struct server_user *user = server->users;
 	while (user)
 	{
-		printf("Currently itterating over user: %s (%llu). Required: %llu\n", user->user->username, user->user->id, userId);
+		//printf("Currently itterating over user: %s (%llu). Required: %llu\n", user->user->username, user->user->id, userId);
 		if (user->user->id == userId)
 		{
 			// Found user! (no need to copy it as breaking here will keep user where it currently is)
@@ -814,6 +814,6 @@ void handleMessagePosted(cJSON *root)
 	message.channel = channel;
 	message.server = server;
 	message.body = contentObject->valuestring; // TODO strcopy it instead (current solution gets freed once this function retruns)? If so, make a linked list of messages (message-chain) so it can easily be freed.
-	
-	printf("New message:\n%s\n(by: %s (%lu) in %s/%s)", message.body, message.author->user->username, message.channel->name, message.server->name);
+
+	printf("New message:\n%s\n(by: %s (%lu) in %s/%s)\n", message.body, message.author->user->username, message.author->user->id, message.server->name, message.channel->name);
 }
