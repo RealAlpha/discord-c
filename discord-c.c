@@ -131,6 +131,7 @@ uint8_t isRetrievingMembers  = 0;
 void sigintHandler(int sig)
 {
 	freeServers(glob_servers);
+	exit(1);
 }
 
 int main(int argc, char *argv[])
