@@ -737,8 +737,14 @@ void handleMessagePosted(cJSON *root)
 	
 	// Attempt to find the correct server/channel
 	struct server *server = glob_servers;
+	struct server_channel *channel = NULL;
+	
 	while(server)
 	{
+		// Did it already find the channel? (AKA not eqaul to NULL)
+		if (channel)
+			break;
+
 		printf("Server id: %llu|Server name: %s\n", server->serverId, server->name);
 		struct server_channel *_channel = server->channels;
 		while (_channel)
@@ -747,16 +753,40 @@ void handleMessagePosted(cJSON *root)
 			if (channelId == _channel->id)
 			{
 				printf("Found channel with name: %s\n", _channel->name);
+				channel = _channel;
+				break;
 			}
 			
 			_channel = _channel->next;
 		}
+		
+		// Here again so it doesn't switch to next...helps preserve the server variable
+		if (channel)
+			break;
 
 		server = server->next;
 	}
-	// TODO early quit? If it's already found the channel there is no need to itterate over the rest!
+
+	if(server == NULL || channel == NULL)
+	{
+		printf("Error while recieving message! User not in channel!\n");
+		return;
+	}
+	
+	struct message *message;
 
 	// Try to find the user.
+	struct server_user *user = server->users;
+	while (user)
+	{
+		if (user->user->id == userId)
+		{
+			// Found user! (no need to copy it as breaking here will keep user where it currently is)
+			break;
+		}
+
+		user = user->next;
+	}
 
 	//printf("New message:\n%s (by: %s (%lu))", 
 }
