@@ -241,9 +241,9 @@ void websocket_disconnect(client_websocket_t* client) {
 }
 
 void websocket_think(client_websocket_t* client) {
-	pthread_mutex_lock(client->_write_mutex);
+//	pthread_mutex_lock(client->_write_mutex);
 	lws_service(client->_context, 500);
-	pthread_mutex_unlock(client->_write_mutex);
+//	pthread_mutex_unlock(client->_write_mutex);
 }
 
 

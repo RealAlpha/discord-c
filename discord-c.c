@@ -665,7 +665,7 @@ void finishedRetrievingMembers()
 	isRetrievingMembers = 0;
 	printf("Finished retrieving members!\n");
 	
-	// Run callback
-	cli_callbacks->users_found(glob_servers);
+	// Run callback - TODO uncomment when it's actually set up
+	//cli_callbacks->users_found(glob_servers);
 }
 
