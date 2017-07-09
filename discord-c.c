@@ -300,10 +300,9 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 		printf("Guild name: %s (id: %lu)\n", guildNameObject->valuestring, guildId);
 		
 		// Create struct to hold server
-		struct server *server = malloc(sizeof(server));
+		struct server *server = malloc(sizeof(struct server));
 		
-		//server->name = malloc(strlen(guildNameObject->valuestring) + 1);
-		server->name = malloc(1024);
+		server->name = malloc(strlen(guildNameObject->valuestring) + 1);
 		strcpy(server->name, guildNameObject->valuestring);
 		
 		server->serverId = guildId;
@@ -372,16 +371,20 @@ void handleGuildMemberChunk(cJSON *root)
 		return;
 	}
 	
+	
 	struct server *_server = glob_servers;
 	while (_server)
 	{
 		if (_server->serverId == guildId)
 		{
 			printf("Found guild!");
+			server = _server;
+			break;
 		}
 		_server = _server->next;
 	}
-	/*
+	
+/*
 	for (struct server *_server = servers; _server->next != NULL; _server = _server->next)
 	{
 		if (server)
@@ -391,10 +394,11 @@ void handleGuildMemberChunk(cJSON *root)
 			{
 				// Found!
 				server = _server;
+				break;
 			}
 		}
 	}
-	*/
+*/
 	if (server == NULL)
 	{
 		// Couldn't find server? Something went wrong!
@@ -416,7 +420,7 @@ void handleGuildMemberChunk(cJSON *root)
 		struct user *user = malloc(sizeof(struct user));
 		
 		// Allocate username memory + copy it
-		user->username = malloc(strlen(userIdObject->valuestring) + 1);
+		user->username = malloc(strlen(usernameObject->valuestring) + 1);
 		strcpy(user->username, usernameObject->valuestring);
 		
 		// Convert the id string into a decimal uint64_t and store it in the id field
@@ -431,9 +435,9 @@ void handleGuildMemberChunk(cJSON *root)
 		while (roleObject)
 		{
 			uint64_t roleId = strtoull((const char *)roleObject->valuestring, NULL, 10);
-
-			// Go over the roles, trying to find the correct ones for this user
-			for (struct roles *role = server->roles; roles->next != NULL; roles = roles->next)
+			
+			struct roles *role = server->roles;
+			while (role)
 			{
 				if (role->role->id == roleId)
 				{
@@ -443,11 +447,12 @@ void handleGuildMemberChunk(cJSON *root)
 					roles = roleElement;
 					break;
 				}
+				role = role->next;
 			}
 
 			roleObject = roleObject->next;
 		}
-
+		memberObject = memberObject->next;
 	}
 
 //	uint64_t guildId = strtoull((const char *)guildIdItem->valuestring, NULL, 10);
