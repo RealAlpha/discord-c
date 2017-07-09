@@ -5,6 +5,8 @@
 #include "pthread.h"
 #include "cJSON.h"
 
+#include "signal.h"
+
 int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t length);
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
 void *heartbeatFunction(void *websocket);
@@ -13,6 +15,14 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root);
 void handleIdentify(client_websocket_t *socket);
 void handleOnReady(client_websocket_t *socket, cJSON *root);
 void handleGuildMemberChunk(cJSON *root);
+
+/*
+// Cleanup
+void freeServers(struct server *node);
+void freeChannels(struct server_channel *node);
+void freeUsers(struct server_user *node);
+void freeRoles(struct roles *node);
+*/
 
 // Stores the information associated with a connection (token, websocket, etc)
 struct connection
@@ -105,6 +115,12 @@ struct discord_callbacks {
 //	websocket_connection_error_callback on_connection_error;
 };
 
+// Cleanup
+void freeServers(struct server *node);
+void freeChannels(struct server_channel *node);
+void freeUsers(struct server_user *node);
+void freeRoles(struct roles *node);
+
 // Ugly global variable for CLI callbacks
 struct discord_callbacks cli_callbacks;
 // Even more ugly global variable that stores the servers linked list. Needed to go from server id -> server linked list in some functions :(
@@ -112,9 +128,15 @@ struct server *glob_servers = NULL;
 // Super ugly global variable to store if it's currently awaiting member fragments
 uint8_t isRetrievingMembers  = 0;
 
+void sigintHandler(int sig)
+{
+	freeServers(glob_servers);
+}
 
 int main(int argc, char *argv[])
 {
+	signal(SIGINT, sigintHandler);
+
 	printf("Websocket thing starting up!");
 	client_websocket_callbacks_t myCallbacks;
 	
@@ -441,7 +463,10 @@ void handleGuildMemberChunk(cJSON *root)
 	}
 
 	// Linked list to hold the members in this chunk
-	struct user *members;
+	struct user *members = NULL;
+	
+	// Debug counter TODO remove
+	int usersAdded = 0;
 
 	while (memberObject)
 	{
@@ -498,7 +523,67 @@ void handleGuildMemberChunk(cJSON *root)
 		server->users = userElement;
 
 		memberObject = memberObject->next;
+		usersAdded++; // TODO
 	}
 	
-	printf("Recieved member chunk for guild id %lu", guildId);
+	printf("Recieved member chunk for guild id %lu. Added %i users!\n", guildId, usersAdded);
+}
+
+void freeServers(struct server *node)
+{
+	if (node == NULL)
+	{
+		return;
+	}
+
+	// TODO tail recursion is faster?
+	freeServers(node->next);
+	
+	free(node->name);
+
+	freeChannels(node->channels);
+
+	freeUsers(node->users);
+	
+	freeRoles(node->roles);
+}
+
+// Internal
+void freeChannels(struct server_channel *node)
+{
+	if (node == NULL)
+		return;
+	
+	freeChannels(node->next);
+
+	free(node->name);
+	free(node->topic);
+}
+
+void freeUsers(struct server_user *node)
+{
+	if (node == NULL)
+		return;
+	
+	freeUsers(node->next);
+
+	free(node->user->username);
+	free(node->user);
+
+	free(node);
+
+	// Don't free role! Done by freeRoles()
+}
+
+void freeRoles(struct roles *node)
+{
+	if (node == NULL)
+		return;
+
+	freeRoles(node->next);
+
+	free(node->role->name);
+	free(node->role);
+	
+	free(node);
 }
