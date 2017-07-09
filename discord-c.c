@@ -10,6 +10,7 @@
 int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t length);
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
 void *heartbeatFunction(void *websocket);
+void *thinkFunction(void *websocket);
 
 void handleEventDispatch(client_websocket_t *socket, cJSON *root);
 void handleIdentify(client_websocket_t *socket);
@@ -166,21 +167,32 @@ int main(int argc, char *argv[])
 	
 	// TODO Make this grab the gateway instead of hard-coding it
 	websocket_connect(myWebSocket, "wss://gateway.discord.gg/?v=5&encoding=json");
+	
+	// Offload websocket_think() to another thread so we can use mutex locks!
+	pthread_t serviceThread;
+	pthread_create(&serviceThread, NULL, thinkFunction, (void*)myWebSocket);
 
 	// Allow it some time to connect
-	for (int i = 0; i < 10; i++)
-	{
-		websocket_think(myWebSocket);
-		sleep(1);
-	}
+	//for (int i = 0; i < 10; i++)
+	//{
+	//	websocket_think(myWebSocket);
+	//	sleep(1);
+	//}
 	
 	pthread_t heartbeatThread;
 	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)myWebSocket);
 	
+	// Keep the main thread occupied so the program doesn't exit
+	while(1)
+	{
+		sleep(1);
+	}
+
+	/*
 	// Loop to keep the main thread occupied + websocket in service
 	while (1)
 	{
-		/*
+		/ *
 		if (isRetrievingMembers == 0)
 		{
 			printf("Done retrieving members!\n");
@@ -198,11 +210,11 @@ int main(int argc, char *argv[])
 			}
 		//	break;
 		}
-		*/
+		* /
 		websocket_think(myWebSocket);
-		usleep(500*1000);
+		//usleep(500*1000);
 	}
-
+	*/
 	// TODO remove the above "bloat" into functions/threads
 	
 }
@@ -286,6 +298,14 @@ void *heartbeatFunction(void *websocket)
 		// Wait heartbeat interval seconds; TODO make this not hard-coded
 		usleep(41250*1000);
 	}
+}
+
+void *thinkFunction(void *websocket)
+{
+	client_websocket_t *myWebSocket = (client_websocket_t*)websocket;
+
+	while (1)
+		websocket_think(myWebSocket);
 }
 
 void handleEventDispatch(client_websocket_t *socket, cJSON *root)
