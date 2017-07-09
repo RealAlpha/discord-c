@@ -182,6 +182,8 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 				break;
 		}
 	}
+	// Free the JSON struct thing
+	cJSON_Delete(root);
 
 	return 0;
 }
