@@ -109,6 +109,9 @@ struct discord_callbacks {
 struct discord_callbacks cli_callbacks;
 // Even more ugly global variable that stores the servers linked list. Needed to go from server id -> server linked list in some functions :(
 struct server *glob_servers = NULL;
+// Super ugly global variable to store if it's currently awaiting member fragments
+uint8_t isRetrievingMembers  = 0;
+
 
 int main(int argc, char *argv[])
 {
@@ -137,6 +140,23 @@ int main(int argc, char *argv[])
 	// Loop to keep the main thread occupied + websocket in service
 	while (1)
 	{
+		if (isRetrievingMembers == 0)
+		{
+			printf("Done retrieving members!\n");
+			struct server *server = glob_servers;
+			while (server)
+			{
+				printf("--------------------------------\n%s\n--------------------------------\n", server->name);
+				struct server_user *user = server->users;
+				while(user)
+				{
+					printf("Username: %s\nID: %llu\n\n", user->user->username, user->user->id);
+					user = user->next;
+				}
+				server = server->next;
+			}
+		//	break;
+		}
 		websocket_think(myWebSocket);
 		usleep(500*1000);
 	}
@@ -159,6 +179,11 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 	{
 		int opcode = opCodeItem->valueint;
 		printf("Opcode: %i", opcode);
+		
+		// Is it not an event and is it currently retrieving members? Well stop that, we're done getting those packages!
+		if (opcode != 0 && isRetrievingMembers == 1)
+			isRetrievingMembers = 0;
+
 		switch(opcode)
 		{
 			case 0:
@@ -229,6 +254,10 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 	{
 		char *eventName = eventNameItem->valuestring;
 		
+		// Previous chunks where guild members, but the current one isn't. We finished grabbing members! (as it's all done in 1 go)
+		if (strcmp(eventName, "GUILD_MEMBERS_CHUNK") != 0 && isRetrievingMembers == 1)
+			isRetrievingMembers = 0;
+
 		if (strcmp(eventName, "MESSAGE_CREATE") == 0)
 		{
 			// A new message has been posted
@@ -343,7 +372,7 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 		// TODO Is 256 chars long enough/too long/etc?
 		char packet[256];
 
-		sprintf(packet, "{\"op\":8, \"d\":{\"guild_id\": \"%lu\", \"query\": \"\", \"limit\": 0}}", guildId);
+		sprintf(packet, "{\"op\":8, \"d\":{\"guild_id\": \"%lu\", \"query\": \"\", \"limit\": 300}}", guildId);
 		printf("Request packet: %s\n", packet);
 		websocket_send(socket, packet, strlen(packet), 0);
 		guild = guild->next;
@@ -355,6 +384,9 @@ void handleGuildMemberChunk(cJSON *root)
 {
 	// Go from ugly global varialbe -> local variable
 	struct server *servers = glob_servers;
+	
+	// Set the state to retrieving members
+	isRetrievingMembers = 1;
 
 	root = cJSON_GetObjectItemCaseSensitive(root, "d");
 
