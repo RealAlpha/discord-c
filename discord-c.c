@@ -111,6 +111,20 @@ struct server
 	struct server *next;
 };
 
+struct message
+{
+	// Sender of the message
+	struct server_user *author;
+	// The channel the message got sent in
+	struct server_channel *channel;
+	// The server the message got sent in
+	struct server *server; // TODO is this required? Maybe channel -> server lookup isn't too costly & a better alternative
+	// The body of the message
+	char *body;
+	// (boolean) Has the message been edited?
+	uint8_t edited;
+};
+
 typedef void (*discord_login_complete_callback)(struct connection connection, struct server *servers);
 typedef void (*discord_memberfetch_complete_callback)(struct server *servers);
 typedef void (*discord_message_posted_callback)(struct message message); // TODO should this be a pointer instead? Would that add a ton of overhead to the cleanup?
@@ -773,12 +787,12 @@ void handleMessagePosted(cJSON *root)
 		return;
 	}
 	
-	struct message *message;
-
+	
 	// Try to find the user.
 	struct server_user *user = server->users;
 	while (user)
 	{
+		printf("Currently itterating over user: %s (%llu). Required: %llu\n", user->user->username, user->user->id, userId);
 		if (user->user->id == userId)
 		{
 			// Found user! (no need to copy it as breaking here will keep user where it currently is)
@@ -788,5 +802,18 @@ void handleMessagePosted(cJSON *root)
 		user = user->next;
 	}
 
-	//printf("New message:\n%s (by: %s (%lu))", 
+	if (user == NULL)
+	{
+		printf("Unable to find author of the message!\n");
+		return;
+	}
+
+	// Stuff it all in a struct
+	struct message message;
+	message.author = user; // TODO should be user->user instead?
+	message.channel = channel;
+	message.server = server;
+	message.body = contentObject->valuestring; // TODO strcopy it instead (current solution gets freed once this function retruns)? If so, make a linked list of messages (message-chain) so it can easily be freed.
+	
+	printf("New message:\n%s\n(by: %s (%lu) in %s/%s)", message.body, message.author->user->username, message.channel->name, message.server->name);
 }
