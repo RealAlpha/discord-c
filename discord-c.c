@@ -37,11 +37,20 @@ struct role
 	// TODO is uint32_t large enough?
 	uint32_t position;
 	uint32_t permissions;
+	uint32_t color;
+	
+	char *name;
 
 	// Boolean!
 	uint8_t mentionable;
+};
 
-	struct role *next;
+// "wrapper" object to go from role -> linked list (for users & server role list). This allows for only storing a role once, instead of potentially multiple thousands of times.
+struct roles
+{
+	struct role *role;
+
+	struct roles *next;
 };
 
 struct server_user
@@ -73,10 +82,15 @@ struct server
 {
 	// Server name
 	char *name;
+	// Server id
+	uint64_t serverId;
+
 	// Channels
-	struct server_channel channels;
+	struct server_channel *channels;
 	// Users
-	struct server_user users;
+	struct server_user *users;
+	// Roles
+	struct roles *roles;
 
 	// Linked list next node
 	struct server *next;
@@ -92,6 +106,8 @@ struct discord_callbacks {
 
 // Ugly global variable for CLI callbacks
 struct discord_callbacks cli_callbacks;
+// Even more ugly global variable that stores the servers linked list. Needed to go from server id -> server linked list in some functions :(
+struct server *glob_servers = NULL;
 
 int main(int argc, char *argv[])
 {
@@ -268,7 +284,8 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 	{
 		cJSON *guildNameObject = cJSON_GetObjectItemCaseSensitive(guild, "name");
 		cJSON *guildIdObject = cJSON_GetObjectItemCaseSensitive(guild, "id");
-		
+		cJSON *guildRolesObject = cJSON_GetObjectItemCaseSensitive(guild, "roles");
+
 		uint64_t guildId = strtoull((const char *)guildIdObject->valuestring, NULL, 10);
 		
 		if(cJSON_IsNumber(guildIdObject))
@@ -281,6 +298,45 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 		}
 		
 		printf("Guild name: %s (id: %lu)\n", guildNameObject->valuestring, guildId);
+		
+		// Create struct to hold server
+		struct server *server = malloc(sizeof(server));
+		
+		//server->name = malloc(strlen(guildNameObject->valuestring) + 1);
+		server->name = malloc(1024);
+		strcpy(server->name, guildNameObject->valuestring);
+		
+		server->serverId = guildId;
+		server->channels = NULL;
+		server->users = NULL;
+
+		server->next = glob_servers;
+		glob_servers = server;
+		
+		// Set the roles to NULL so the loop can use server->roles for next without worrying about using an uninitialized variable
+		server->roles = NULL;
+
+		cJSON *roleObject = guildRolesObject->child;
+		while (roleObject)
+		{
+			uint64_t roleId = strtoull((const char *)cJSON_GetObjectItemCaseSensitive(roleObject, "id")->valuestring, NULL, 10);
+			// TODO figure out how on earth this is supposed to represent a color
+			uint32_t roleColor = cJSON_GetObjectItemCaseSensitive(roleObject, "color")->valueint;
+			char *roleName = cJSON_GetObjectItemCaseSensitive(roleObject, "name")->valuestring;
+			// TODO the rest of the role's properties
+
+			struct role *role = malloc(sizeof(struct role));
+			struct roles *roleElement = malloc(sizeof(struct roles));
+
+			roleElement->next = server->roles;
+			roleElement->role = role;
+			role->id = roleId;
+			role->color = roleColor;
+			role->name = roleName;
+			// TODO the rest of the properties
+
+			roleObject = roleObject->next;
+		}
 
 		// TODO Is 256 chars long enough/too long/etc?
 		char packet[256];
@@ -295,6 +351,9 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 
 void handleGuildMemberChunk(cJSON *root)
 {
+	// Go from ugly global varialbe -> local variable
+	struct server *servers = glob_servers;
+
 	root = cJSON_GetObjectItemCaseSensitive(root, "d");
 
 	cJSON *guildIdItem = cJSON_GetObjectItemCaseSensitive(root, "guild_id");
@@ -302,6 +361,46 @@ void handleGuildMemberChunk(cJSON *root)
 	
 	cJSON *memberObject = membersObject->child;
 	
+	// Grab the guild/server it's id	
+	uint64_t guildId = strtoull((const char *)guildIdItem->valuestring, NULL, 10);
+	
+	struct server *server = NULL;
+
+	if (servers == NULL)
+	{
+		printf("Error: No servers!\n");
+		return;
+	}
+	
+	struct server *_server = glob_servers;
+	while (_server)
+	{
+		if (_server->serverId == guildId)
+		{
+			printf("Found guild!");
+		}
+		_server = _server->next;
+	}
+	/*
+	for (struct server *_server = servers; _server->next != NULL; _server = _server->next)
+	{
+		if (server)
+		{
+			printf("server itteration\n");
+			if (_server->serverId == guildId)
+			{
+				// Found!
+				server = _server;
+			}
+		}
+	}
+	*/
+	if (server == NULL)
+	{
+		// Couldn't find server? Something went wrong!
+		printf("Unable to find server!\n");
+	}
+
 	// Linked list to hold the members in this chunk
 	struct user *members;
 
@@ -310,9 +409,48 @@ void handleGuildMemberChunk(cJSON *root)
 		cJSON *userObject = cJSON_GetObjectItemCaseSensitive(memberObject, "user");
 		cJSON *rolesObject = cJSON_GetObjectItemCaseSensitive(memberObject, "roles");
 		cJSON *nicknameObject = cJSON_GetObjectItemCaseSensitive(memberObject, "nick");
+		
+		cJSON *usernameObject = cJSON_GetObjectItemCaseSensitive(userObject, "username");
+		cJSON *userIdObject = cJSON_GetObjectItemCaseSensitive(userObject, "id");
+
+		struct user *user = malloc(sizeof(struct user));
+		
+		// Allocate username memory + copy it
+		user->username = malloc(strlen(userIdObject->valuestring) + 1);
+		strcpy(user->username, usernameObject->valuestring);
+		
+		// Convert the id string into a decimal uint64_t and store it in the id field
+		user->id = strtoull((const char *)usernameObject->valuestring, NULL, 10);
+		
+		// Users' roles
+		struct roles *roles = NULL;
+		
+		cJSON *roleObject = rolesObject->child;
+		
+		// Itterate over the roles the user has, pulling out the id and matching it to the server it's role.
+		while (roleObject)
+		{
+			uint64_t roleId = strtoull((const char *)roleObject->valuestring, NULL, 10);
+
+			// Go over the roles, trying to find the correct ones for this user
+			for (struct roles *role = server->roles; roles->next != NULL; roles = roles->next)
+			{
+				if (role->role->id == roleId)
+				{
+					// Found correct role! Add it to the user roles linked list.
+					struct roles *roleElement = malloc(sizeof(struct roles));
+					roleElement->next = roles;
+					roles = roleElement;
+					break;
+				}
+			}
+
+			roleObject = roleObject->next;
+		}
+
 	}
 
-	uint64_t guildId = strtoull((const char *)guildIdItem->valuestring, NULL, 10);
+//	uint64_t guildId = strtoull((const char *)guildIdItem->valuestring, NULL, 10);
 
 	printf("Recieved member chunk for guild id %lu", guildId);
 }
