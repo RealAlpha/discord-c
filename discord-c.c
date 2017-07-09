@@ -148,7 +148,7 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 	strncpy(buffer, data, length);
 	buffer[length] = '\0';
 
-	printf("\n\nRecieved callback!\nContent:\n%s\n\n", data);
+	//printf("\n\nRecieved callback!\nContent:\n%s\n\n", data);
 	
 	// Parse the json using cJSON
 	cJSON *root = cJSON_Parse(data);
