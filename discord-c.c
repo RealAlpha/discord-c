@@ -132,6 +132,8 @@ struct server *glob_servers = NULL;
 // Super ugly global variable to store if it's currently awaiting member fragments
 uint8_t isRetrievingMembers  = 0;
 
+void finishedRetrievingMembers();
+
 void sigintHandler(int sig)
 {
 	freeServers(glob_servers);
@@ -219,7 +221,7 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 		
 		// Is it not an event and is it currently retrieving members? Well stop that, we're done getting those packages!
 		if (opcode != 0 && isRetrievingMembers == 1)
-			isRetrievingMembers = 0;
+			finishedRetrievingMembers();
 
 		switch(opcode)
 		{
@@ -294,8 +296,7 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 		
 		// Previous chunks where guild members, but the current one isn't. We finished grabbing members! (as it's all done in 1 go)
 		if (strcmp(eventName, "GUILD_MEMBERS_CHUNK") != 0 && isRetrievingMembers == 1)
-			isRetrievingMembers = 0;
-
+			finishedRetrievingMembers();
 		if (strcmp(eventName, "MESSAGE_CREATE") == 0)
 		{
 			// A new message has been posted
@@ -622,3 +623,10 @@ void freeRoles(struct roles *node)
 	
 	free(node);
 }
+
+void finishedRetrievingMembers()
+{
+	isRetrievingMembers = 0;
+	printf("Finished retrieving members!\n");
+}
+
