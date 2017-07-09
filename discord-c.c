@@ -547,6 +547,8 @@ void freeServers(struct server *node)
 	freeUsers(node->users);
 	
 	freeRoles(node->roles);
+
+	free(node);
 }
 
 // Internal
@@ -559,6 +561,8 @@ void freeChannels(struct server_channel *node)
 
 	free(node->name);
 	free(node->topic);
+
+	free(node);
 }
 
 void freeUsers(struct server_user *node)
