@@ -110,7 +110,7 @@ struct server
 };
 
 typedef void (*discord_login_complete_callback)(struct connection connection, struct server *servers);
-typedef void (*discord_memberfetch_complete_callback)(struct server servers);
+typedef void (*discord_memberfetch_complete_callback)(struct server *servers);
 
 struct discord_callbacks {
 	discord_login_complete_callback login_complete;
@@ -644,6 +644,8 @@ void finishedRetrievingMembers()
 {
 	isRetrievingMembers = 0;
 	printf("Finished retrieving members!\n");
-
+	
+	// Run callback
+	cli_callbacks->users_found(glob_servers);
 }
 
