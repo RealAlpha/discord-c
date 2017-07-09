@@ -395,6 +395,7 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 		cJSON *guildNameObject = cJSON_GetObjectItemCaseSensitive(guild, "name");
 		cJSON *guildIdObject = cJSON_GetObjectItemCaseSensitive(guild, "id");
 		cJSON *guildRolesObject = cJSON_GetObjectItemCaseSensitive(guild, "roles");
+		cJSON *guildChannelsObject = cJSON_GetObjectItemCaseSensitive(guild, "channels");
 
 		uint64_t guildId = strtoull((const char *)guildIdObject->valuestring, NULL, 10);
 		
@@ -416,7 +417,44 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 		strcpy(server->name, guildNameObject->valuestring);
 		
 		server->serverId = guildId;
+		
+		// Avoid garbage values / not intitialized errors
 		server->channels = NULL;
+		
+		cJSON *channelObject = guildChannelsObject->child;
+		while(channelObject)
+		{
+			uint64_t channelId = strtoull((const char *)cJSON_GetObjectItemCaseSensitive(channelObject, "id")->valuestring, NULL, 10);
+			
+			cJSON *channelNameObject = cJSON_GetObjectItemCaseSensitive(channelObject, "name");
+			char *channelName = malloc(strlen(channelNameObject->valuestring) + 1);
+			strcpy(channelName, channelNameObject->valuestring);
+
+			cJSON *channelTopicObject = cJSON_GetObjectItemCaseSensitive(channelObject, "topic");
+			char *channelTopic = NULL;
+			
+			if (channelTopicObject == NULL || channelTopicObject->valuestring == NULL)
+			{
+				channelTopic = malloc(sizeof(char));
+				channelTopic[0] = '\0';
+			}
+			else
+			{
+				channelTopic = malloc(strlen(channelTopicObject->valuestring) + 1);
+				strcpy(channelTopic, channelTopicObject->valuestring);
+			}
+
+			struct server_channel *channel = malloc(sizeof(struct server_channel));
+			channel->id = channelId;
+			channel->name = channelName;
+			channel->topic = channelTopic;
+
+			channel->next = server->channels;
+			server->channels = channel;
+
+			channelObject = channelObject->next;
+		}
+
 		server->users = NULL;
 
 		server->next = glob_servers;
@@ -696,13 +734,16 @@ void handleMessagePosted(cJSON *root)
 	uint64_t userId = strtoull((const char *)userIdObject->valuestring, NULL, 10);
 	uint64_t channelId = strtoull((const char *)channelIdObject->valuestring, NULL, 10);
 
+	
 	// Attempt to find the correct server/channel
 	struct server *server = glob_servers;
 	while(server)
 	{
+		printf("Server id: %llu|Server name: %s\n", server->serverId, server->name);
 		struct server_channel *_channel = server->channels;
 		while (_channel)
 		{
+			//printf("Channel id: %llu|Required id: %llu|Channel Name: %s", _channel->id, channelId, _channel->name);
 			if (channelId == _channel->id)
 			{
 				printf("Found channel with name: %s\n", _channel->name);
