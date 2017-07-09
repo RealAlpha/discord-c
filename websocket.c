@@ -176,6 +176,7 @@ void websocket_free(client_websocket_t* client) {
 	free(client->_address);
 	free(client->_path);
 	free(client->_write_mutex);
+	
 	free(client);
 }
 

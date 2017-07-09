@@ -119,7 +119,11 @@ struct discord_callbacks {
 void freeServers(struct server *node);
 void freeChannels(struct server_channel *node);
 void freeUsers(struct server_user *node);
+void freeUserRoles(struct roles *node);
 void freeRoles(struct roles *node);
+
+// TODO remove - for memory leak stuff test yeah...
+client_websocket_t *globWebSocket = NULL;
 
 // Ugly global variable for CLI callbacks
 struct discord_callbacks cli_callbacks;
@@ -131,6 +135,13 @@ uint8_t isRetrievingMembers  = 0;
 void sigintHandler(int sig)
 {
 	freeServers(glob_servers);
+
+	if (globWebSocket)
+	{
+		websocket_disconnect(globWebSocket);
+		websocket_free(globWebSocket);
+	}
+
 	exit(1);
 }
 
@@ -145,7 +156,8 @@ int main(int argc, char *argv[])
 	myCallbacks.on_connection_error = client_ws_connection_error_callback;
 
 	client_websocket_t *myWebSocket = malloc(sizeof(client_websocket_t));
-       	myWebSocket = websocket_create(&myCallbacks);
+	myWebSocket = websocket_create(&myCallbacks);
+	globWebSocket = myWebSocket; // TODO remove?
 	
 	// TODO Make this grab the gateway instead of hard-coding it
 	//if (argc != 2)
@@ -163,6 +175,7 @@ int main(int argc, char *argv[])
 	// Loop to keep the main thread occupied + websocket in service
 	while (1)
 	{
+		/*
 		if (isRetrievingMembers == 0)
 		{
 			printf("Done retrieving members!\n");
@@ -180,6 +193,7 @@ int main(int argc, char *argv[])
 			}
 		//	break;
 		}
+		*/
 		websocket_think(myWebSocket);
 		usleep(500*1000);
 	}
@@ -232,7 +246,8 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 	}
 	// Free the JSON struct thing
 	cJSON_Delete(root);
-
+	// Free the buffer copy
+	free(buffer);
 	return 0;
 }
 
@@ -383,10 +398,13 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 			struct roles *roleElement = malloc(sizeof(struct roles));
 
 			roleElement->next = server->roles;
+			server->roles = roleElement;
 			roleElement->role = role;
 			role->id = roleId;
 			role->color = roleColor;
-			role->name = roleName;
+			role->name = malloc(strlen(roleName) + 1);
+			strcpy(role->name, roleName);
+			
 			// TODO the rest of the properties
 
 			roleObject = roleObject->next;
@@ -574,10 +592,22 @@ void freeUsers(struct server_user *node)
 
 	free(node->user->username);
 	free(node->user);
+	
+	freeUserRoles(node->roles);
 
 	free(node);
 
 	// Don't free role! Done by freeRoles()
+}
+
+void freeUserRoles(struct roles *node)
+{
+	if (node == NULL)
+		return;
+
+	freeUserRoles(node->next);
+	
+	free(node);
 }
 
 void freeRoles(struct roles *node)
