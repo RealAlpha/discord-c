@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 	
 	pthread_t heartbeatThread;
 	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)myWebSocket);
-	
+
 	// Keep the main thread occupied so the program doesn't exit
 	while(1)
 	{
