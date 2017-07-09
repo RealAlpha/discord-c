@@ -56,10 +56,11 @@ struct roles
 struct server_user
 {
 	// User information
-	struct user user;
+	struct user *user;
 	
 	// TODO roles & other server specific stuff
-	
+	struct roles *roles;
+
 	// Linked list next node
 	struct server_user *next;
 };
@@ -428,7 +429,7 @@ void handleGuildMemberChunk(cJSON *root)
 		
 		// Users' roles
 		struct roles *roles = NULL;
-		
+
 		cJSON *roleObject = rolesObject->child;
 		
 		// Itterate over the roles the user has, pulling out the id and matching it to the server it's role.
@@ -447,15 +448,23 @@ void handleGuildMemberChunk(cJSON *root)
 					roles = roleElement;
 					break;
 				}
+
 				role = role->next;
 			}
 
 			roleObject = roleObject->next;
 		}
+		
+		struct server_user *userElement = malloc(sizeof(struct server_user));
+		
+		userElement->user = user;
+		userElement->roles = roles;
+		
+		userElement->next = server->users;
+		server->users = userElement;
+
 		memberObject = memberObject->next;
 	}
-
-//	uint64_t guildId = strtoull((const char *)guildIdItem->valuestring, NULL, 10);
-
+	
 	printf("Recieved member chunk for guild id %lu", guildId);
 }
