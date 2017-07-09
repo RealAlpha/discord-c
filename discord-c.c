@@ -336,6 +336,15 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 		{
 			handleGuildMemberChunk(root);
 		}
+		else if(strcmp(eventName, "MESSAGE_ACK") == 0)
+		{
+			// Don't do anything yet, this event seems broken?
+
+		}
+		else if(strcmp(eventName, "MESSAGE_UPDATE") == 0)
+		{
+			// Message has been updated
+		}
 		else
 		{
 			// Unsupported event!
