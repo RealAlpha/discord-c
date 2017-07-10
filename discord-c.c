@@ -531,9 +531,6 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 	if (cli_callbacks != NULL && cli_callbacks->login_complete != NULL)
 		cli_callbacks->login_complete(connection, glob_servers);
 
-	// TODO Want to free now or later? AKA allow persistence? Posibly required!
-	//free(connection);
-
 }
 
 void handleGuildMemberChunk(cJSON *root)
@@ -744,7 +741,10 @@ void finishedRetrievingMembers()
 	printf("Finished retrieving members!\n");
 	
 	// Run callback - TODO uncomment when it's actually set up
-	//cli_callbacks->users_found(glob_servers);
+	if (!cli_callbacks || !cli_callbacks->users_found)
+		printf("You didn't set up the users found callback!\n");
+	else
+		cli_callbacks->users_found(glob_servers);
 }
 
 void handleMessagePosted(cJSON *root)
@@ -830,8 +830,11 @@ void handleMessagePosted(cJSON *root)
 
 	printf("New message:\n%s\n(by: %s (%lu) in %s/%s)\n", message.body, message.author->user->username, message.author->user->id, message.server->name, message.channel->name);
 
-	// Call the cli back with this message - TODO isn't valid yet!!!
-	//cli_callbacks->message_posted(message);
+	// Call the cli back with this message
+	if (!cli_callbacks || !cli_callbacks->message_posted)
+		fprintf(stderr, "You didn't set up the message posted callback!\n");
+	else
+		cli_callbacks->message_posted(message);
 }
 
 void handleMessageUpdated(cJSON *root)
@@ -910,13 +913,16 @@ void handleMessageUpdated(cJSON *root)
 
 	// Stuff it all in a struct
 	struct message message;
-	message.author = user; // TODO should be user->user instead?
+	message.author = user;
 	message.channel = channel;
 	message.server = server;
 	message.body = contentObject->valuestring; // TODO strcopy it instead (current solution gets freed once this function retruns)? If so, make a linked list of messages (message-chain) so it can easily be freed.
 
 	printf("Message Updated:\n%s\n(by: %s (%lu) in %s/%s)\n", message.body, message.author->user->username, message.author->user->id, message.server->name, message.channel->name);
 	
-	// TODO enable callbacks!
-	//cli_callbacks->message_updated(message);
+	// Call the cli back
+	if (!cli_callbacks || !cli_callbacks->message_updated)
+		fprintf(stderr, "You didn't set up the message update callback!\n");
+	else
+		cli_callbacks->message_updated(message);
 }
