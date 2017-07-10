@@ -27,6 +27,10 @@ void freeUsers(struct server_user *node);
 void freeRoles(struct roles *node);
 */
 
+// Global thread variables
+pthread_t serviceThread;
+pthread_t heartbeatThread;
+
 // Stores the information associated with a connection (token, websocket, etc)
 struct connection
 {
@@ -158,7 +162,12 @@ void finishedRetrievingMembers();
 
 void sigintHandler(int sig)
 {
+
 	freeServers(glob_servers);
+	
+	// Kill the threads (TODO could this cause issues?)
+	pthread_cancel(serviceThread);
+	pthread_cancel(heartbeatThread);
 
 	if (globWebSocket)
 	{
@@ -179,7 +188,7 @@ int main(int argc, char *argv[])
 	myCallbacks.on_receive = client_ws_receive_callback;
 	myCallbacks.on_connection_error = client_ws_connection_error_callback;
 
-	client_websocket_t *myWebSocket = malloc(sizeof(client_websocket_t));
+	client_websocket_t *myWebSocket = NULL;//malloc(sizeof(client_websocket_t));
 	myWebSocket = websocket_create(&myCallbacks);
 	globWebSocket = myWebSocket; // TODO remove?
 	
@@ -187,7 +196,7 @@ int main(int argc, char *argv[])
 	websocket_connect(myWebSocket, "wss://gateway.discord.gg/?v=5&encoding=json");
 	
 	// Offload websocket_think() to another thread so we can use mutex locks!
-	pthread_t serviceThread;
+	//pthread_t serviceThread;
 	pthread_create(&serviceThread, NULL, thinkFunction, (void*)myWebSocket);
 
 	// Allow it some time to connect
@@ -197,7 +206,7 @@ int main(int argc, char *argv[])
 	//	sleep(1);
 	//}
 	
-	pthread_t heartbeatThread;
+	//pthread_t heartbeatThread;
 	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)myWebSocket);
 
 	// Keep the main thread occupied so the program doesn't exit

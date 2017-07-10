@@ -173,8 +173,8 @@ void websocket_free(client_websocket_t* client) {
 	pthread_mutex_destroy(client->_write_mutex);
 
 	/* free alloc'd data */
-	free(client->_address);
-	free(client->_path);
+	//free(client->_address);
+	//free(client->_path);
 	free(client->_write_mutex);
 	
 	free(client);
