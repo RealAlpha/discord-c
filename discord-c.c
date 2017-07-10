@@ -816,4 +816,7 @@ void handleMessagePosted(cJSON *root)
 	message.body = contentObject->valuestring; // TODO strcopy it instead (current solution gets freed once this function retruns)? If so, make a linked list of messages (message-chain) so it can easily be freed.
 
 	printf("New message:\n%s\n(by: %s (%lu) in %s/%s)\n", message.body, message.author->user->username, message.author->user->id, message.server->name, message.channel->name);
+
+	// Call the cli back with this message - TODO isn't valid yet!!!
+	//cli_callbacks->message_posted(message);
 }
