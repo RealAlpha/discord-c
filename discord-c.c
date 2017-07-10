@@ -772,7 +772,7 @@ void handleMessagePosted(cJSON *root)
 		if (channel)
 			break;
 
-		printf("Server id: %llu|Server name: %s\n", server->serverId, server->name);
+		printf("Server id: %lu|Server name: %s\n", server->serverId, server->name);
 		struct server_channel *_channel = server->channels;
 		while (_channel)
 		{
@@ -862,7 +862,7 @@ void handleMessageUpdated(cJSON *root)
 		if (channel)
 			break;
 
-		printf("Server id: %llu|Server name: %s\n", server->serverId, server->name);
+		printf("Server id: %lu|Server name: %s\n", server->serverId, server->name);
 		struct server_channel *_channel = server->channels;
 		while (_channel)
 		{
