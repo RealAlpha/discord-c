@@ -133,11 +133,13 @@ struct message
 typedef void (*discord_login_complete_callback)(struct connection connection, struct server *servers);
 typedef void (*discord_memberfetch_complete_callback)(struct server *servers);
 typedef void (*discord_message_posted_callback)(struct message message); // TODO should this be a pointer instead? Would that add a ton of overhead to the cleanup?
+typedef void (*discord_message_updated_callback)(struct message message);
 
 struct discord_callbacks {
 	discord_login_complete_callback login_complete;
 	discord_memberfetch_complete_callback users_found;
 	discord_message_posted_callback message_posted;
+	discord_message_updated_callback message_updated;
 //	websocket_connection_error_callback on_connection_error;
 };
 
@@ -753,7 +755,7 @@ void handleMessagePosted(cJSON *root)
 	cJSON *contentObject = cJSON_GetObjectItemCaseSensitive(root, "content");
 	cJSON *channelIdObject = cJSON_GetObjectItemCaseSensitive(root, "channel_id");
 
-	// TODO add webhook handling
+	// TODO add webhook handling + DM handling
 	cJSON *userIdObject = cJSON_GetObjectItemCaseSensitive(authorObject, "id");
 
 	uint64_t userId = strtoull((const char *)userIdObject->valuestring, NULL, 10);
@@ -840,7 +842,7 @@ void handleMessageUpdated(cJSON *root)
 	cJSON *contentObject = cJSON_GetObjectItemCaseSensitive(root, "content");
 	cJSON *channelIdObject = cJSON_GetObjectItemCaseSensitive(root, "channel_id");
 
-	// TODO add webhook handling
+	// TODO add webhook handling + DM handling
 	cJSON *userIdObject = cJSON_GetObjectItemCaseSensitive(authorObject, "id");
 
 	uint64_t userId = strtoull((const char *)userIdObject->valuestring, NULL, 10);
@@ -915,5 +917,6 @@ void handleMessageUpdated(cJSON *root)
 
 	printf("Message Updated:\n%s\n(by: %s (%lu) in %s/%s)\n", message.body, message.author->user->username, message.author->user->id, message.server->name, message.channel->name);
 	
-	// TODO callbacks!
+	// TODO enable callbacks!
+	//cli_callbacks->message_updated(message);
 }
