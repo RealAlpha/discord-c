@@ -17,6 +17,7 @@ void handleIdentify(client_websocket_t *socket);
 void handleOnReady(client_websocket_t *socket, cJSON *root);
 void handleGuildMemberChunk(cJSON *root);
 void handleMessagePosted(cJSON *root);
+void handleMessageUpdated(cJSON *root);
 
 /*
 // Cleanup
@@ -362,6 +363,7 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 		else if(strcmp(eventName, "MESSAGE_UPDATE") == 0)
 		{
 			// Message has been updated
+			handleMessageUpdated(root);
 		}
 		else
 		{
@@ -819,4 +821,90 @@ void handleMessagePosted(cJSON *root)
 
 	// Call the cli back with this message - TODO isn't valid yet!!!
 	//cli_callbacks->message_posted(message);
+}
+
+void handleMessageUpdated(cJSON *root)
+{
+	root = cJSON_GetObjectItemCaseSensitive(root, "d");
+
+	cJSON *authorObject = cJSON_GetObjectItemCaseSensitive(root, "author");
+	cJSON *contentObject = cJSON_GetObjectItemCaseSensitive(root, "content");
+	cJSON *channelIdObject = cJSON_GetObjectItemCaseSensitive(root, "channel_id");
+
+	// TODO add webhook handling
+	cJSON *userIdObject = cJSON_GetObjectItemCaseSensitive(authorObject, "id");
+
+	uint64_t userId = strtoull((const char *)userIdObject->valuestring, NULL, 10);
+	uint64_t channelId = strtoull((const char *)channelIdObject->valuestring, NULL, 10);
+
+	
+	// Attempt to find the correct server/channel
+	struct server *server = glob_servers;
+	struct server_channel *channel = NULL;
+	
+	while(server)
+	{
+		// Did it already find the channel? (AKA not eqaul to NULL)
+		if (channel)
+			break;
+
+		printf("Server id: %llu|Server name: %s\n", server->serverId, server->name);
+		struct server_channel *_channel = server->channels;
+		while (_channel)
+		{
+			//printf("Channel id: %llu|Required id: %llu|Channel Name: %s", _channel->id, channelId, _channel->name);
+			if (channelId == _channel->id)
+			{
+				printf("Found channel with name: %s\n", _channel->name);
+				channel = _channel;
+				break;
+			}
+			
+			_channel = _channel->next;
+		}
+		
+		// Here again so it doesn't switch to next...helps preserve the server variable
+		if (channel)
+			break;
+
+		server = server->next;
+	}
+
+	if(server == NULL || channel == NULL)
+	{
+		printf("Error while recieving message! User not in channel!\n");
+		return;
+	}
+	
+	
+	// Try to find the user.
+	struct server_user *user = server->users;
+	while (user)
+	{
+		//printf("Currently itterating over user: %s (%llu). Required: %llu\n", user->user->username, user->user->id, userId);
+		if (user->user->id == userId)
+		{
+			// Found user! (no need to copy it as breaking here will keep user where it currently is)
+			break;
+		}
+
+		user = user->next;
+	}
+
+	if (user == NULL)
+	{
+		printf("Unable to find author of the message!\n");
+		return;
+	}
+
+	// Stuff it all in a struct
+	struct message message;
+	message.author = user; // TODO should be user->user instead?
+	message.channel = channel;
+	message.server = server;
+	message.body = contentObject->valuestring; // TODO strcopy it instead (current solution gets freed once this function retruns)? If so, make a linked list of messages (message-chain) so it can easily be freed.
+
+	printf("Message Updated:\n%s\n(by: %s (%lu) in %s/%s)\n", message.body, message.author->user->username, message.author->user->id, message.server->name, message.channel->name);
+	
+	// TODO callbacks!
 }
