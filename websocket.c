@@ -167,7 +167,7 @@ void websocket_free(client_websocket_t* client) {
 
 	/* free the context */
 	lws_context_destroy(client->_context);
-	ERR_remove_thread_state(NULL);
+	//ERR_remove_thread_state(NULL); - Unrequired nowadays?
 
 	/* clean up mutexes */
 	pthread_mutex_destroy(client->_write_mutex);

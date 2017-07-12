@@ -840,14 +840,27 @@ void handleMessagePosted(cJSON *root)
 void handleMessageUpdated(cJSON *root)
 {
 	root = cJSON_GetObjectItemCaseSensitive(root, "d");
-
+	
+	if (!root)
+	{
+		fprintf(stderr, "Something went wrong while handling message update! (root JSON object is invalid)\n");
+		return;
+	}
 	cJSON *authorObject = cJSON_GetObjectItemCaseSensitive(root, "author");
 	cJSON *contentObject = cJSON_GetObjectItemCaseSensitive(root, "content");
 	cJSON *channelIdObject = cJSON_GetObjectItemCaseSensitive(root, "channel_id");
 
 	// TODO add webhook handling + DM handling
 	cJSON *userIdObject = cJSON_GetObjectItemCaseSensitive(authorObject, "id");
-
+	
+	if (!userIdObject || !channelIdObject || !authorObject || !contentObject)
+	{
+		// Something went wrong!
+		fprintf(stderr, "Something went wrong while handling message update! (not all JSON filled out)\n");
+		fprintf(stderr, "JSON: %s", cJSON_Print(root));
+		return;
+	}
+	
 	uint64_t userId = strtoull((const char *)userIdObject->valuestring, NULL, 10);
 	uint64_t channelId = strtoull((const char *)channelIdObject->valuestring, NULL, 10);
 
