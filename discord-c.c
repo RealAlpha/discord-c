@@ -181,7 +181,6 @@ void *heartbeatFunction(void *websocket)
 		// 25  chars to be safe
 		char packet[128];
 		sprintf(packet, "{\"op\": 1, \"d\": %i}", sequenceNumber);
-		strcpy(packet, "{\"op\":1,\"d\":251}");
 		websocket_send(myWebSocket, packet, strlen(packet), 0);
 		//websocket_think(myWebSocket);
 	}
