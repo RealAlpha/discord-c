@@ -135,6 +135,13 @@ struct message
 	uint8_t edited;
 };
 
+struct messages
+{
+	// TODO should be pointer instead?
+	struct message message;
+	struct messages *next;
+};
+
 typedef void (*discord_login_complete_callback)(struct connection connection, struct server *servers);
 typedef void (*discord_memberfetch_complete_callback)(struct server *servers);
 typedef void (*discord_message_posted_callback)(struct message message); // TODO should this be a pointer instead? Would that add a ton of overhead to the cleanup?
@@ -1025,6 +1032,8 @@ void init_string(struct string *s) {
   s->ptr[0] = '\0';
 }
 
+void processMessages(char *json);
+
 void getMessagesInChannel(uint64_t channel, int amount)
 {
 	if (amount > 100 || amount < 0)
@@ -1063,9 +1072,115 @@ void getMessagesInChannel(uint64_t channel, int amount)
 		res = curl_easy_perform(curl);
 		
 		printf("\n\nResult:\n%s\n\n", s.ptr);
+		
+		processMessages(s.ptr);
 
 		// Cleanup time!
 		curl_easy_cleanup(curl);
 	}
 	curl_global_cleanup();
+}
+
+void processMessages(char *json)
+{
+	cJSON *root = cJSON_Parse(json);
+	
+	if (!root->child)
+		return;
+
+	cJSON *channelIdObject = cJSON_GetObjectItemCaseSensitive(root->child, "channel_id");
+
+	uint64_t channelId = strtoull((const char *)channelIdObject->valuestring, NULL, 10);
+
+	
+	// Attempt to find the correct server/channel - as this is a get messages in channel call it shouldn't change!
+	struct server *server = glob_servers;
+	struct server_channel *channel = NULL;
+	
+	while(server)
+	{
+		// Did it already find the channel? (AKA not eqaul to NULL)
+		if (channel)
+			break;
+
+		printf("Server id: %lu|Server name: %s\n", server->serverId, server->name);
+		struct server_channel *_channel = server->channels;
+		while (_channel)
+		{
+			//printf("Channel id: %llu|Required id: %llu|Channel Name: %s", _channel->id, channelId, _channel->name);
+			if (channelId == _channel->id)
+			{
+				printf("Found channel with name: %s\n", _channel->name);
+				channel = _channel;
+				break;
+			}
+			
+			_channel = _channel->next;
+		}	
+		
+		// Here again so it doesn't switch to next...helps preserve the server variable
+		if (channel)
+			break;
+
+		server = server->next;
+	}
+
+	if(server == NULL || channel == NULL)
+	{
+		printf("Error while recieving message! User not in channel!\n");
+		return;
+	}
+
+	
+	// Itterate over the messages;
+	cJSON *message = root->child;
+	struct messages *messages = NULL;
+
+	while (message)
+	{
+		cJSON *authorObject = cJSON_GetObjectItemCaseSensitive(message, "author");
+		cJSON *contentObject = cJSON_GetObjectItemCaseSensitive(message, "content");
+		// TODO add webhook handling + DM handling
+		cJSON *userIdObject = cJSON_GetObjectItemCaseSensitive(authorObject, "id");
+		
+		uint64_t userId = strtoull((const char *)userIdObject->valuestring, NULL, 10);
+
+		// Try to find the user.
+		struct server_user *user = server->users;
+		while (user)
+		{
+			//printf("Currently itterating over user: %s (%llu). Required: %llu\n", user->user->username, user->user->id, userId);
+			if (user->user->id == userId)
+			{
+				// Found user! (no need to copy it as breaking here will keep user where it currently is)
+				break;
+			}
+
+			user = user->next;
+		}
+	
+		if (user == NULL)
+		{
+			printf("Unable to find author of the message!\n");
+			return;
+		}
+		
+
+		// Stuff it all in a struct
+		struct message _message;
+		_message.author = user; // TODO should be user->user instead?
+		_message.channel = channel;
+		_message.server = server;
+		_message.body = contentObject->valuestring; // TODO strcopy it instead (current solution gets freed once this function retruns)? If so, make a linked list of messages (message-chain) so it can easily be freed.
+		
+		struct messages *__message = malloc(sizeof(struct messages));
+		
+		__message->message = _message;
+
+		__message->next = messages;
+		messages = __message;
+
+		printf("Message:\n%s\n(by: %s (%lu) in %s/%s)\n", _message.body, _message.author->user->username, _message.author->user->id, _message.server->name, _message.channel->name);
+		message = message->next;
+	}
 }
