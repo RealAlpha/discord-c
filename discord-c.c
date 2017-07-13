@@ -953,31 +953,38 @@ void sendMessage(/* TODO some kind of connection object?, */char *content, uint6
 	curl_global_init(CURL_GLOBAL_DEFAULT);
 	CURL *curl = curl_easy_init();
 	if (curl) {
-		//curl_easy_setopt(curl, CURLOPT_URL, "https://discordapp.com/api/v6/users/116534164919943173/profile"); - Get profile
-		//curl_easy_setopt(curl, CURLOPT_URL, "https://discordapp.com/api/v6/channels/181866934353133570/messages?limit=50"); - Get latest messages
+		// Create a JSON object to hold the message
 		cJSON *root = cJSON_CreateObject();
-		// Serialize username tags -> userid tags (eg. @ImLolly#3232 -><@57023780SOMID7352>)
-		// Example message: {"content":"<@261183265438695424> It's essentially a public secret by now", "nonce" : "334715738713489408", "tts" : false}
+		// TODO Serialize username tags -> userid tags (eg. @ImLolly#3232 -><@57023780SOMID7352>) & clamp input to 2k characters
 		cJSON_AddItemToObject(root, "content", cJSON_CreateString(content));
-		cJSON_AddItemToObject(root, "nonce", cJSON_CreateString("334715738713489408"));
+
+		// Convert channel id into a messages url (TODO evaluate the connect ammount of characters)
+		char channelMessagesLink[85];
+		sprintf(channelMessagesLink, "https://discordapp.com/api/v6/channels/%lu/messages", channel);
+
+		// Set the tts parameter to true or false
 		if (isTTS)
 			cJSON_AddTrueToObject(root, "tts");
 		else
 			cJSON_AddFalseToObject(root, "tts");
 		
-		curl_easy_setopt(curl, CURLOPT_URL, "https://discordapp.com/api/v6/channels/332535524869013505/messages ");
+		// Set the channel it needs  to be sent to
+		curl_easy_setopt(curl, CURLOPT_URL, channelMessagesLink);
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, cJSON_Print(root));
-
+		
+		// Set up the headers to successfully talk with the discord api
 		struct curl_slist *list = NULL;
-
 		list = curl_slist_append(list, "authorization: Mjg3MTc2MDM1MTUyMjk3OTg1.DEe6LA.ZhC1yv2MPGb5Y6z-Rph4wdSzKG0");
 		list = curl_slist_append(list, "Accept: application/json");
 		list = curl_slist_append(list, "content-type: application/json");
 		list = curl_slist_append(list, "User-Agent: DiscordBot (null, v0.0.1)");
-
-		CURLcode res;
 		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+
+		// Attempt to make the request
+		CURLcode res;
 		res = curl_easy_perform(curl);
+
+		// Cleanup time!
 		curl_easy_cleanup(curl);
 	}
 	curl_global_cleanup();
