@@ -7,6 +7,10 @@
 
 #include "signal.h"
 
+#include <curl/curl.h>
+
+void sendMessage(/* TODO some kind of connection object?, */char *content, uint64_t channel, uint8_t isTTS);
+
 int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t length);
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
 void *heartbeatFunction(void *websocket);
@@ -210,6 +214,10 @@ int main(int argc, char *argv[])
 	
 	//pthread_t heartbeatThread;
 	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)myWebSocket);
+	
+	// Test send message
+	sleep(20);
+	sendMessage("Hello, world!", 332535524869013505, 0);
 
 	// Keep the main thread occupied so the program doesn't exit
 	while(1)
@@ -938,4 +946,39 @@ void handleMessageUpdated(cJSON *root)
 		fprintf(stderr, "You didn't set up the message update callback!\n");
 	else
 		cli_callbacks->message_updated(message);
+}
+
+void sendMessage(/* TODO some kind of connection object?, */char *content, uint64_t channel, uint8_t isTTS)
+{
+	curl_global_init(CURL_GLOBAL_DEFAULT);
+	CURL *curl = curl_easy_init();
+	if (curl) {
+		//curl_easy_setopt(curl, CURLOPT_URL, "https://discordapp.com/api/v6/users/116534164919943173/profile"); - Get profile
+		//curl_easy_setopt(curl, CURLOPT_URL, "https://discordapp.com/api/v6/channels/181866934353133570/messages?limit=50"); - Get latest messages
+		cJSON *root = cJSON_CreateObject();
+		// Serialize username tags -> userid tags (eg. @ImLolly#3232 -><@57023780SOMID7352>)
+		// Example message: {"content":"<@261183265438695424> It's essentially a public secret by now", "nonce" : "334715738713489408", "tts" : false}
+		cJSON_AddItemToObject(root, "content", cJSON_CreateString(content));
+		cJSON_AddItemToObject(root, "nonce", cJSON_CreateString("334715738713489408"));
+		if (isTTS)
+			cJSON_AddTrueToObject(root, "tts");
+		else
+			cJSON_AddFalseToObject(root, "tts");
+		
+		curl_easy_setopt(curl, CURLOPT_URL, "https://discordapp.com/api/v6/channels/332535524869013505/messages ");
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, cJSON_Print(root));
+
+		struct curl_slist *list = NULL;
+
+		list = curl_slist_append(list, "authorization: Mjg3MTc2MDM1MTUyMjk3OTg1.DEe6LA.ZhC1yv2MPGb5Y6z-Rph4wdSzKG0");
+		list = curl_slist_append(list, "Accept: application/json");
+		list = curl_slist_append(list, "content-type: application/json");
+		list = curl_slist_append(list, "User-Agent: DiscordBot (null, v0.0.1)");
+
+		CURLcode res;
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+		res = curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+	}
+	curl_global_cleanup();
 }
