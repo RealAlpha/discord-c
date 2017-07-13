@@ -1017,10 +1017,11 @@ void sendMessage(/* TODO some kind of connection object?, */char *content, uint6
 			cJSON_AddTrueToObject(root, "tts");
 		else
 			cJSON_AddFalseToObject(root, "tts");
-		
+		// Put into a char * so it can be manually freed; Not handled by cJSON_Delete_()
+		char *jsonPayload = cJSON_Print(root);
 		// Set the channel it needs  to be sent to
 		curl_easy_setopt(curl, CURLOPT_URL, channelMessagesLink);
-		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, cJSON_Print(root));
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonPayload);
 		
 		// Set up the headers to successfully talk with the discord api
 		struct curl_slist *list = NULL;
@@ -1035,6 +1036,9 @@ void sendMessage(/* TODO some kind of connection object?, */char *content, uint6
 		res = curl_easy_perform(curl);
 
 		// Cleanup time!
+		cJSON_Delete(root);
+		free(jsonPayload);
+		curl_slist_free_all(list);
 		curl_easy_cleanup(curl);
 	}
 	curl_global_cleanup();
