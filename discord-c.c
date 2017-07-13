@@ -175,14 +175,10 @@ void *heartbeatFunction(void *websocket)
 		usleep(41250*1000);
 
 		printf("Sending heartbeat...\n");
-		// TODO figure out how to insert the correct d value
-
 		// Create an operation 1 (=heartbeat) packet and send it off
-		// 25  chars to be safe
 		char packet[128];
 		sprintf(packet, "{\"op\": 1, \"d\": %i}", sequenceNumber);
 		websocket_send(myWebSocket, packet, strlen(packet), 0);
-		//websocket_think(myWebSocket);
 	}
 }
 
