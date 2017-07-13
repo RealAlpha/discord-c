@@ -10,6 +10,7 @@
 #include <curl/curl.h>
 
 void sendMessage(/* TODO some kind of connection object?, */char *content, uint64_t channel, uint8_t isTTS);
+void createClient();
 
 int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t length);
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
@@ -161,6 +162,8 @@ struct discord_callbacks {
 //	websocket_connection_error_callback on_connection_error;
 };
 
+void cleanup();
+
 // Cleanup
 void freeServers(struct server *node);
 void freeChannels(struct server_channel *node);
@@ -189,7 +192,12 @@ void finishedRetrievingMembers();
 
 void sigintHandler(int sig)
 {
+	cleanup();
+	exit(1);
+}
 
+void cleanup()
+{
 	freeServers(glob_servers);
 	freeMessageChain(message_chain);
 
@@ -202,15 +210,31 @@ void sigintHandler(int sig)
 		websocket_disconnect(globWebSocket);
 		websocket_free(globWebSocket);
 	}
-
-	exit(1);
 }
 
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, sigintHandler);
+	
+	fprintf(stderr, "Discord-c starting up!");
+	
+	createClient();
 
-	printf("Websocket thing starting up!");
+	// Test send message
+	sleep(20);
+	sendMessage("Hello, world!", 332535524869013505, 0);
+	getMessagesInChannel(332535524869013505, 10);
+
+	// Keep the main thread occupied so the program doesn't exit
+	while(1)
+	{
+		sleep(1);
+	}
+
+}
+
+void createClient()
+{
 	client_websocket_callbacks_t myCallbacks;
 	
 	myCallbacks.on_receive = client_ws_receive_callback;
@@ -227,56 +251,7 @@ int main(int argc, char *argv[])
 	//pthread_t serviceThread;
 	pthread_create(&serviceThread, NULL, thinkFunction, (void*)myWebSocket);
 
-	// Allow it some time to connect
-	//for (int i = 0; i < 10; i++)
-	//{
-	//	websocket_think(myWebSocket);
-	//	sleep(1);
-	//}
-	
-	//pthread_t heartbeatThread;
 	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)myWebSocket);
-	
-	// Test send message
-	sleep(20);
-	sendMessage("Hello, world!", 332535524869013505, 0);
-	getMessagesInChannel(332535524869013505, 10);
-
-	// Keep the main thread occupied so the program doesn't exit
-	while(1)
-	{
-		sleep(1);
-	}
-
-	/*
-	// Loop to keep the main thread occupied + websocket in service
-	while (1)
-	{
-		/ *
-		if (isRetrievingMembers == 0)
-		{
-			printf("Done retrieving members!\n");
-			struct server *server = glob_servers;
-			while (server)
-			{
-				printf("--------------------------------\n%s\n--------------------------------\n", server->name);
-				struct server_user *user = server->users;
-				while(user)
-				{
-					printf("Username: %s\nID: %llu\n\n", user->user->username, user->user->id);
-					user = user->next;
-				}
-				server = server->next;
-			}
-		//	break;
-		}
-		* /
-		websocket_think(myWebSocket);
-		//usleep(500*1000);
-	}
-	*/
-	// TODO remove the above "bloat" into functions/threads
-	
 }
 
 int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t length) {
