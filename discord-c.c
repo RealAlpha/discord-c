@@ -137,8 +137,15 @@ struct message
 struct messages
 {
 	// TODO should be pointer instead?
-	struct message message;
+	struct message *message;
 	struct messages *next;
+};
+
+// Struct to store chunks of messages. Used so the message struct's next will be reliable
+struct message_chain
+{
+	struct messages *chunk;
+	struct message_chain *next;
 };
 
 typedef void (*discord_login_complete_callback)(struct connection connection, struct server *servers);
@@ -160,6 +167,8 @@ void freeChannels(struct server_channel *node);
 void freeUsers(struct server_user *node);
 void freeUserRoles(struct roles *node);
 void freeRoles(struct roles *node);
+void freeMessageChain(struct message_chain *node);
+void freeMessages(struct messages *node);
 
 struct messages *getMessagesInChannel(uint64_t channel, int ammount); // TODO create before/around/after functions too?
 
@@ -170,6 +179,9 @@ client_websocket_t *globWebSocket = NULL;
 struct discord_callbacks *cli_callbacks = NULL;
 // Even more ugly global variable that stores the servers linked list. Needed to go from server id -> server linked list in some functions :(
 struct server *glob_servers = NULL;
+// Really ugly "message chain" for freeing messages
+struct message_chain *message_chain = NULL;
+
 // Super ugly global variable to store if it's currently awaiting member fragments
 uint8_t isRetrievingMembers  = 0;
 
@@ -179,7 +191,8 @@ void sigintHandler(int sig)
 {
 
 	freeServers(glob_servers);
-	
+	freeMessageChain(message_chain);
+
 	// Kill the threads (TODO could this cause issues?)
 	pthread_cancel(serviceThread);
 	pthread_cancel(heartbeatThread);
@@ -695,7 +708,7 @@ void freeServers(struct server *node)
 	freeUsers(node->users);
 	
 	freeRoles(node->roles);
-
+	
 	free(node);
 }
 
@@ -750,6 +763,31 @@ void freeRoles(struct roles *node)
 	free(node->role->name);
 	free(node->role);
 	
+	free(node);
+}
+
+void freeMessages(struct messages *node)
+{
+	if (node == NULL)
+		return;
+
+	freeMessages(node->next);
+
+	free(node->message->body);
+	free(node->message);
+
+	free(node);
+}
+
+void freeMessageChain(struct message_chain *node)
+{
+	if (node == NULL)
+		return;
+	
+	freeMessageChain(node->next);
+	
+	freeMessages(node->chunk);
+
 	free(node);
 }
 
@@ -1154,11 +1192,12 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 
 
 			// Stuff it all in a struct
-			struct message _message;
-			_message.author = user; // TODO should be user->user instead?
-			_message.channel = channel;
-			_message.server = server;
-			_message.body = contentObject->valuestring; // TODO strcopy it instead (current solution gets freed once this function retruns)? If so, make a linked list of messages (message-chain) so it can easily be freed.
+			struct message *_message = malloc(sizeof(struct message));
+			_message->author = user;
+			_message->channel = channel;
+			_message->server = server;
+			_message->body = malloc(strlen(contentObject->valuestring) + 1);
+			strcpy(_message->body, contentObject->valuestring);
 
 			struct messages *__message = malloc(sizeof(struct messages));
 
@@ -1171,9 +1210,15 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 		}
 		// Cleanup time!
 		curl_easy_cleanup(curl);
-		// TODO use strcpy + a message chain to clean up the messages
+		cJSON_Delete(root);
 	}
 	curl_global_cleanup();
+	
+	// Add this set of messages to the message chain (for free-ing)
+	struct message_chain *messageEntry = malloc(sizeof(struct message_chain));
+	messageEntry->chunk = messages;
+	messageEntry->next = message_chain;
+	message_chain = messageEntry;
 
 	return messages;
 }
