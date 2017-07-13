@@ -10,6 +10,7 @@
 #include <curl/curl.h>
 
 void sendMessage(/* TODO some kind of connection object?, */char *content, uint64_t channel, uint8_t isTTS);
+void getMessagesInChannel(uint64_t channel, int ammount); // TODO create before/around/after functions too?
 
 int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t length);
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
@@ -218,6 +219,7 @@ int main(int argc, char *argv[])
 	// Test send message
 	sleep(20);
 	sendMessage("Hello, world!", 332535524869013505, 0);
+	getMessagesInChannel(332535524869013505, 10);
 
 	// Keep the main thread occupied so the program doesn't exit
 	while(1)
@@ -950,7 +952,9 @@ void handleMessageUpdated(cJSON *root)
 
 void sendMessage(/* TODO some kind of connection object?, */char *content, uint64_t channel, uint8_t isTTS)
 {
+	// Creeate a curl "object"
 	curl_global_init(CURL_GLOBAL_DEFAULT);
+
 	CURL *curl = curl_easy_init();
 	if (curl) {
 		// Create a JSON object to hold the message
@@ -983,6 +987,82 @@ void sendMessage(/* TODO some kind of connection object?, */char *content, uint6
 		// Attempt to make the request
 		CURLcode res;
 		res = curl_easy_perform(curl);
+
+		// Cleanup time!
+		curl_easy_cleanup(curl);
+	}
+	curl_global_cleanup();
+}
+
+
+struct string {
+  char *ptr;
+  size_t len;
+};
+
+size_t writefunc(void *ptr, size_t size, size_t nmemb, struct string *s)
+{
+  size_t new_len = s->len + size*nmemb;
+  s->ptr = realloc(s->ptr, new_len+1);
+  if (s->ptr == NULL) {
+    fprintf(stderr, "realloc() failed\n");
+    exit(EXIT_FAILURE);
+  }
+  memcpy(s->ptr+s->len, ptr, size*nmemb);
+  s->ptr[new_len] = '\0';
+  s->len = new_len;
+
+  return size*nmemb;
+}
+
+void init_string(struct string *s) {
+  s->len = 0;
+  s->ptr = malloc(s->len+1);
+  if (s->ptr == NULL) {
+    fprintf(stderr, "malloc() failed\n");
+    exit(EXIT_FAILURE);
+  }
+  s->ptr[0] = '\0';
+}
+
+void getMessagesInChannel(uint64_t channel, int amount)
+{
+	if (amount > 100 || amount < 0)
+	{
+		fprintf(stderr, "Invalid ammount of messages requested, resorting to default (50) Please use 0-100");
+		amount = 50;
+	}
+
+	curl_global_init(CURL_GLOBAL_DEFAULT);
+	CURL *curl = curl_easy_init();
+	
+	if (curl) {
+		// TODO make this buffer the correct size
+		char requestUri[80];
+		sprintf(requestUri, "https://discordapp.com/api/v6/channels/%ld/messages?limit=%i", channel, amount);
+		curl_easy_setopt(curl, CURLOPT_URL, requestUri);
+
+		// Add HTTP headers to correctly communicate with the discord API
+		struct curl_slist *list = NULL;
+
+		list = curl_slist_append(list, "authorization: Mjg3MTc2MDM1MTUyMjk3OTg1.DEe6LA.ZhC1yv2MPGb5Y6z-Rph4wdSzKG0");
+		list = curl_slist_append(list, "Accept: application/json");
+		list = curl_slist_append(list, "content-type: application/json");
+		list = curl_slist_append(list, "User-Agent: DiscordBot (null, v0.0.1)");
+
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+		
+		// Set up the result holding
+		struct string s;
+    		init_string(&s);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
+		
+		// (attempt to) perform the request.
+		CURLcode res;
+		res = curl_easy_perform(curl);
+		
+		printf("\n\nResult:\n%s\n\n", s.ptr);
 
 		// Cleanup time!
 		curl_easy_cleanup(curl);
