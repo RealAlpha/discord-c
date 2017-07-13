@@ -1045,28 +1045,34 @@ void sendMessage(/* TODO some kind of connection object?, */char *content, uint6
 	curl_global_cleanup();
 }
 
-size_t writefunc(void *ptr, size_t size, size_t nmemb, char **s)
-{
-	if (*s == NULL)
-	{
-		size_t len = size*nmemb;
-		*s = malloc(len + 1);
-		memcpy(*s, ptr, size*nmemb);
-		char *string = *s;
-		string[len] = '\0';
-		return size*nmemb;
-	}
-	size_t strSize = strlen(*s);
-	size_t _size = strSize + size * nmemb;
-	printf("Size: %i\nNMemB: %i\n", size, nmemb);
-	*s = realloc(*s, size + 1);
-	//strncpy(*s, ptr, size*nmemb);
+struct string {
+  char *ptr;
+  size_t len;
+};
 
-	memcpy((*s)+strSize, ptr, size*nmemb);
-	// Add a null-terminator
-	(*s)[_size] = '\0';
-	
-	return size*nmemb;
+void init_string(struct string *s) {
+  s->len = 0;
+  s->ptr = malloc(s->len+1);
+  if (s->ptr == NULL) {
+    fprintf(stderr, "malloc() failed\n");
+    exit(EXIT_FAILURE);
+  }
+  s->ptr[0] = '\0';
+}
+
+size_t writefunc(void *ptr, size_t size, size_t nmemb, struct string *s)
+{
+  size_t new_len = s->len + size*nmemb;
+  s->ptr = realloc(s->ptr, new_len+1);
+  if (s->ptr == NULL) {
+    fprintf(stderr, "realloc() failed\n");
+    exit(EXIT_FAILURE);
+  }
+  memcpy(s->ptr+s->len, ptr, size*nmemb);
+  s->ptr[new_len] = '\0';
+  s->len = new_len;
+
+  return size*nmemb;
 }
 
 struct messages *getMessagesInChannel(uint64_t channel, int amount)
@@ -1098,7 +1104,8 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
 		
 		// Set up the result holding
-		char *s = NULL;
+		struct string s;
+		init_string(&s);
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
 		
@@ -1106,7 +1113,7 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 		CURLcode res;
 		res = curl_easy_perform(curl);
 		
-		cJSON *root = cJSON_Parse(s);
+		cJSON *root = cJSON_Parse(s.ptr);
 		
 		if (!root->child)
 			return NULL;
@@ -1208,7 +1215,7 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 		// Cleanup time!
 		curl_easy_cleanup(curl);
 		cJSON_Delete(root);
-		free(s);
+		free(s.ptr);
 	}
 	curl_global_cleanup();
 	
@@ -1217,6 +1224,5 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 	messageEntry->chunk = messages;
 	messageEntry->next = message_chain;
 	message_chain = messageEntry;
-
 	return messages;
 }
