@@ -29,6 +29,8 @@ struct message_chain *message_chain = NULL;
 // Super ugly global variable to store if it's currently awaiting member fragments
 uint8_t isRetrievingMembers  = 0;
 
+int sequenceNumber = 0;
+
 //void finishedRetrievingMembers();
 
 void sigintHandler(int sig)
@@ -75,9 +77,6 @@ int main(int argc, char *argv[])
 
 void createClient()
 {
-	pthread_t serviceThread;
-	pthread_t heartbeatThread;
-	
 	client_websocket_callbacks_t *myCallbacks = malloc(sizeof(client_websocket_callbacks_t));
 	
 	myCallbacks->on_receive = client_ws_receive_callback;
@@ -97,8 +96,6 @@ void createClient()
 	// Offload websocket_think() to another thread so we can use mutex locks!
 	//pthread_t serviceThread;
 	pthread_create(&serviceThread, NULL, thinkFunction, (void*)myWebSocket);
-
-	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)myWebSocket);
 }
 
 int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t length) {
@@ -113,6 +110,11 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 	cJSON *root = cJSON_Parse(data);
 	
 	cJSON *opCodeItem = cJSON_GetObjectItemCaseSensitive(root, "op");
+	
+	// Set the last sequence
+	cJSON *sequenceNumberItem = cJSON_GetObjectItemCaseSensitive(root, "s");
+	if (sequenceNumberItem)
+		sequenceNumber = sequenceNumberItem->valueint;
 
 	if(cJSON_IsNumber(opCodeItem))
 	{
@@ -169,16 +171,19 @@ void *heartbeatFunction(void *websocket)
 
 	while (1)
 	{
+		// Wait heartbeat interval seconds; TODO make this not hard-coded
+		usleep(41250*1000);
+
 		printf("Sending heartbeat...\n");
 		// TODO figure out how to insert the correct d value
 
 		// Create an operation 1 (=heartbeat) packet and send it off
-		char *packet = "{\"op\": 1, \"d\": 251}";
+		// 25  chars to be safe
+		char packet[128];
+		sprintf(packet, "{\"op\": 1, \"d\": %i}", sequenceNumber);
+		strcpy(packet, "{\"op\":1,\"d\":251}");
 		websocket_send(myWebSocket, packet, strlen(packet), 0);
 		//websocket_think(myWebSocket);
-
-		// Wait heartbeat interval seconds; TODO make this not hard-coded
-		usleep(41250*1000);
 	}
 }
 
@@ -383,7 +388,9 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 	
 	struct connection connection;
 	connection.webSocket = socket;
-
+	// Spawn the heartbeat thread
+	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)socket);
+	
 	// Successfully connected! Callback time
 	if (cli_callbacks != NULL && cli_callbacks->login_complete != NULL)
 		cli_callbacks->login_complete(connection, glob_servers);
