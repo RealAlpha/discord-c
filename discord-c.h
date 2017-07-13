@@ -1,5 +1,5 @@
+// Sends a message with "content" as a body to the channel with the "channel" id. Makes the message say out loud is isTTS is true (and the server doesn't ban it)
 void sendMessage(/* TODO some kind of connection object?, */char *content, uint64_t channel, uint8_t isTTS);
-void createClient();
 
 int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t length);
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
@@ -166,3 +166,7 @@ void freeMessages(struct messages *node);
 struct messages *getMessagesInChannel(uint64_t channel, int ammount); // TODO create before/around/after functions too?
 
 void finishedRetrievingMembers();
+
+// Sets up a discord client
+void createClient(struct discord_callbacks *callbacks, char *token);
+

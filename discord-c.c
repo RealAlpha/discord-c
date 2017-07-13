@@ -25,7 +25,8 @@ struct discord_callbacks *cli_callbacks = NULL;
 struct server *glob_servers = NULL;
 // Really ugly "message chain" for freeing messages
 struct message_chain *message_chain = NULL;
-
+// Another ugly global variable! Aren't you getting tired of these yet? This one stores the client's token (which should be <= 60 chars long)
+char client_token[60];
 // Super ugly global variable to store if it's currently awaiting member fragments
 uint8_t isRetrievingMembers  = 0;
 
@@ -60,7 +61,7 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sigintHandler);
 	fprintf(stderr, "Discord-c starting up!");
 	
-	createClient();
+	createClient(NULL, "Mjg3MTc2MDM1MTUyMjk3OTg1.DD_c7w.V9NC_tbWiUZYv0jTEGTgyATLl6Q");
 
 	// Test send message
 	sleep(20);
@@ -75,22 +76,29 @@ int main(int argc, char *argv[])
 
 }
 
-void createClient()
+void createClient(struct discord_callbacks *callbacks, char *token)
 {
+	// Set the local websocket callbacks up (use a pointer to avoid threads getting issues when this function terminates)
 	client_websocket_callbacks_t *myCallbacks = malloc(sizeof(client_websocket_callbacks_t));
-	
 	myCallbacks->on_receive = client_ws_receive_callback;
 	myCallbacks->on_connection_error = client_ws_connection_error_callback;
+	
+	// Set the token
+	strcpy(client_token, token);
+	// Set the callbacks
+	cli_callbacks = callbacks;
 
 	client_websocket_t *myWebSocket = NULL;//malloc(sizeof(client_websocket_t));
 	myWebSocket = websocket_create(myCallbacks);
 	globWebSocket = myWebSocket; // TODO remove?
-	sleep(10);
+	
+	sleep(5);
+
 	// TODO Make this grab the gateway instead of hard-coding it
 	websocket_connect(myWebSocket, "wss://gateway.discord.gg/?v=5&encoding=json");
 	printf("Just tried to connect");
 
-	sleep(10);
+	sleep(2);
 	
 	printf("Creating threads...");
 	// Offload websocket_think() to another thread so we can use mutex locks!
@@ -249,7 +257,9 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 void handleIdentify(client_websocket_t *socket)
 {
 	printf("Handling Identification!\n");
-	char *request =  "{\"op\":2,\"d\":{\"token\":\"Mjg3MTc2MDM1MTUyMjk3OTg1.DD_c7w.V9NC_tbWiUZYv0jTEGTgyATLl6Q\",\"properties\":{\"$os\":\"linux\",\"$browser\":\"my_library_name\",\"$device\":\"my_library_name\",\"$referrer\":\"\",\"$referring_domain\":\"\"},\"compress\":false,\"large_threshold\":250,\"shard\":[1,10]}}";
+	// Buffer to store the request in (should be < 300 characters)
+	char request[300];
+       	sprintf(request, "{\"op\":2,\"d\":{\"token\":\"%s\",\"properties\":{\"$os\":\"linux\",\"$browser\":\"discord-c\",\"$device\":\"discord-c\",\"$referrer\":\"\",\"$referring_domain\":\"\"},\"compress\":false,\"large_threshold\":250,\"shard\":[1,10]}}", client_token);
 
 	websocket_send(socket, request, strlen(request), 0);
 
@@ -854,7 +864,12 @@ void sendMessage(/* TODO some kind of connection object?, */char *content, uint6
 		
 		// Set up the headers to successfully talk with the discord api
 		struct curl_slist *list = NULL;
-		list = curl_slist_append(list, "authorization: Mjg3MTc2MDM1MTUyMjk3OTg1.DEe6LA.ZhC1yv2MPGb5Y6z-Rph4wdSzKG0");
+		
+		// Buffer for the athorization header (should be <= 75 chars long); This let's discord know that it's an authenticated user communicating (and which user it is)
+		char authorizationHeader[75];
+		sprintf(authorizationHeader, "authorization: %s", client_token);
+		list = curl_slist_append(list, authorizationHeader);
+
 		list = curl_slist_append(list, "Accept: application/json");
 		list = curl_slist_append(list, "content-type: application/json");
 		list = curl_slist_append(list, "User-Agent: DiscordBot (null, v0.0.1)");
@@ -924,7 +939,11 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 		// Add HTTP headers to correctly communicate with the discord API
 		struct curl_slist *list = NULL;
 
-		list = curl_slist_append(list, "authorization: Mjg3MTc2MDM1MTUyMjk3OTg1.DEe6LA.ZhC1yv2MPGb5Y6z-Rph4wdSzKG0");
+		// Buffer for the athorization header (should be <= 75 chars long); This let's discord know that it's an authenticated user communicating (and which user it is)
+		char authorizationHeader[75];
+		sprintf(authorizationHeader, "authorization: %s", client_token);
+		list = curl_slist_append(list, authorizationHeader);
+
 		list = curl_slist_append(list, "Accept: application/json");
 		list = curl_slist_append(list, "content-type: application/json");
 		list = curl_slist_append(list, "User-Agent: DiscordBot (null, v0.0.1)");
