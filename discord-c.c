@@ -8,172 +8,13 @@
 #include "signal.h"
 
 #include <curl/curl.h>
-
-void sendMessage(/* TODO some kind of connection object?, */char *content, uint64_t channel, uint8_t isTTS);
-void createClient();
-
-int client_ws_receive_callback(client_websocket_t *socket, char *data, size_t length);
-int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length);
-void *heartbeatFunction(void *websocket);
-void *thinkFunction(void *websocket);
-
-void handleEventDispatch(client_websocket_t *socket, cJSON *root);
-void handleIdentify(client_websocket_t *socket);
-void handleOnReady(client_websocket_t *socket, cJSON *root);
-void handleGuildMemberChunk(cJSON *root);
-void handleMessagePosted(cJSON *root);
-void handleMessageUpdated(cJSON *root);
-
-/*
-// Cleanup
-void freeServers(struct server *node);
-void freeChannels(struct server_channel *node);
-void freeUsers(struct server_user *node);
-void freeRoles(struct roles *node);
-*/
+#include "discord-c.h"
 
 // Global thread variables
 pthread_t serviceThread;
 pthread_t heartbeatThread;
 
-// Stores the information associated with a connection (token, websocket, etc)
-struct connection
-{
-
-	// TODO
-	client_websocket_t *webSocket;
-
-};
-
-struct user
-{
-	// Username
-	char *username;
-	// id
-	uint64_t id;
-	// TODO Add more fields
-};
-
-// Struct that stores a role
-struct role
-{
-	uint64_t id;
-	// TODO is uint32_t large enough?
-	uint32_t position;
-	uint32_t permissions;
-	uint32_t color;
-	
-	char *name;
-
-	// Boolean!
-	uint8_t mentionable;
-};
-
-// "wrapper" object to go from role -> linked list (for users & server role list). This allows for only storing a role once, instead of potentially multiple thousands of times.
-struct roles
-{
-	struct role *role;
-
-	struct roles *next;
-};
-
-struct server_user
-{
-	// User information
-	struct user *user;
-	
-	// TODO roles & other server specific stuff
-	struct roles *roles;
-
-	// Linked list next node
-	struct server_user *next;
-};
-
-struct server_channel
-{
-	// Channel name
-	char *name;
-	// Channel topic
-	char *topic;
-	// Channel id
-	uint64_t id;
-
-	// Linked list next node
-	struct server_channel *next;
-};
-
-
-struct server
-{
-	// Server name
-	char *name;
-	// Server id
-	uint64_t serverId;
-
-	// Channels
-	struct server_channel *channels;
-	// Users
-	struct server_user *users;
-	// Roles
-	struct roles *roles;
-
-	// Linked list next node
-	struct server *next;
-};
-
-struct message
-{
-	// Sender of the message
-	struct server_user *author;
-	// The channel the message got sent in
-	struct server_channel *channel;
-	// The server the message got sent in
-	struct server *server; // TODO is this required? Maybe channel -> server lookup isn't too costly & a better alternative
-	// The body of the message
-	char *body;
-	// (boolean) Has the message been edited?
-	uint8_t edited;
-};
-
-struct messages
-{
-	// TODO should be pointer instead?
-	struct message *message;
-	struct messages *next;
-};
-
-// Struct to store chunks of messages. Used so the message struct's next will be reliable
-struct message_chain
-{
-	struct messages *chunk;
-	struct message_chain *next;
-};
-
-typedef void (*discord_login_complete_callback)(struct connection connection, struct server *servers);
-typedef void (*discord_memberfetch_complete_callback)(struct server *servers);
-typedef void (*discord_message_posted_callback)(struct message message); // TODO should this be a pointer instead? Would that add a ton of overhead to the cleanup?
-typedef void (*discord_message_updated_callback)(struct message message);
-
-struct discord_callbacks {
-	discord_login_complete_callback login_complete;
-	discord_memberfetch_complete_callback users_found;
-	discord_message_posted_callback message_posted;
-	discord_message_updated_callback message_updated;
-//	websocket_connection_error_callback on_connection_error;
-};
-
-void cleanup();
-
-// Cleanup
-void freeServers(struct server *node);
-void freeChannels(struct server_channel *node);
-void freeUsers(struct server_user *node);
-void freeUserRoles(struct roles *node);
-void freeRoles(struct roles *node);
-void freeMessageChain(struct message_chain *node);
-void freeMessages(struct messages *node);
-
-struct messages *getMessagesInChannel(uint64_t channel, int ammount); // TODO create before/around/after functions too?
+//struct messages *getMessagesInChannel(uint64_t channel, int ammount); // TODO create before/around/after functions too?
 
 // TODO remove - for memory leak stuff test yeah...
 client_websocket_t *globWebSocket = NULL;
@@ -188,7 +29,7 @@ struct message_chain *message_chain = NULL;
 // Super ugly global variable to store if it's currently awaiting member fragments
 uint8_t isRetrievingMembers  = 0;
 
-void finishedRetrievingMembers();
+//void finishedRetrievingMembers();
 
 void sigintHandler(int sig)
 {
@@ -215,7 +56,6 @@ void cleanup()
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, sigintHandler);
-	
 	fprintf(stderr, "Discord-c starting up!");
 	
 	createClient();
@@ -235,18 +75,25 @@ int main(int argc, char *argv[])
 
 void createClient()
 {
-	client_websocket_callbacks_t myCallbacks;
+	pthread_t serviceThread;
+	pthread_t heartbeatThread;
 	
-	myCallbacks.on_receive = client_ws_receive_callback;
-	myCallbacks.on_connection_error = client_ws_connection_error_callback;
+	client_websocket_callbacks_t *myCallbacks = malloc(sizeof(client_websocket_callbacks_t));
+	
+	myCallbacks->on_receive = client_ws_receive_callback;
+	myCallbacks->on_connection_error = client_ws_connection_error_callback;
 
 	client_websocket_t *myWebSocket = NULL;//malloc(sizeof(client_websocket_t));
-	myWebSocket = websocket_create(&myCallbacks);
+	myWebSocket = websocket_create(myCallbacks);
 	globWebSocket = myWebSocket; // TODO remove?
-	
+	sleep(10);
 	// TODO Make this grab the gateway instead of hard-coding it
 	websocket_connect(myWebSocket, "wss://gateway.discord.gg/?v=5&encoding=json");
+	printf("Just tried to connect");
+
+	sleep(10);
 	
+	printf("Creating threads...");
 	// Offload websocket_think() to another thread so we can use mutex locks!
 	//pthread_t serviceThread;
 	pthread_create(&serviceThread, NULL, thinkFunction, (void*)myWebSocket);
@@ -340,7 +187,11 @@ void *thinkFunction(void *websocket)
 	client_websocket_t *myWebSocket = (client_websocket_t*)websocket;
 
 	while (1)
+	{
+		//printf("Think Loop!\n");
 		websocket_think(myWebSocket);
+		//usleep(200000);
+	}
 }
 
 void handleEventDispatch(client_websocket_t *socket, cJSON *root)
