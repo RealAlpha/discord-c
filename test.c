@@ -3,6 +3,7 @@
 #include "signal.h"
 
 void onMessagePostedCallback(struct message message);
+void onReadyCallback(struct connection connection, struct server *server);
 
 void sigintHandler(int sig)
 {
@@ -17,7 +18,7 @@ int main(int argc, char *argv[])
 	
 	struct discord_callbacks callbacks;
 	
-	callbacks.login_complete = NULL;
+	callbacks.login_complete = onReadyCallback;
 	callbacks.users_found = NULL;
 	callbacks.message_posted = onMessagePostedCallback;
 	callbacks.message_updated = NULL;
@@ -42,4 +43,17 @@ int main(int argc, char *argv[])
 void onMessagePostedCallback(struct message message)
 {
 	printf("Recieved new message!\n");
+}
+
+void onReadyCallback(struct connection connection, struct server *servers)
+{
+	printf("Loaded guilds!\n");
+	
+	struct server *server = servers;
+	
+	while (server)
+	{
+		printf("- %s\n", server->name);
+		server = server->next;
+	}
 }
