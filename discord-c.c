@@ -633,8 +633,10 @@ void handlePresenceUpdate(cJSON *root)
 						user->status = MS_Offline;
 					}
 
-					// TODO cli callback!
-					
+					// Run a callback
+					if (cli_callbacks && cli_callbacks->presence_updated)
+						cli_callbacks->presence_updated(user);
+
 					break;
 				}
 				user = user->next;
