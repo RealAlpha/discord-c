@@ -21,6 +21,7 @@ void handleOnReady(client_websocket_t *socket, cJSON *root);
 void handleGuildMemberChunk(cJSON *root);
 void handleMessagePosted(cJSON *root);
 void handleMessageUpdated(cJSON *root);
+void handlePresenceUpdate(cJSON *root);
 
 /*
 // Cleanup

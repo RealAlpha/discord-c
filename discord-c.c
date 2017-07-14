@@ -250,7 +250,8 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 		}
 		else if(strcmp(eventName, "PRESENCE_UPDATE") == 0)
 		{
-			printf("Recieved presence update!\nJSON: %s\n", cJSON_Print(root));
+			//printf("Recieved presence update!\nJSON: %s\n", cJSON_Print(root));
+			handlePresenceUpdate(root);
 		}
 		else
 		{
@@ -588,6 +589,62 @@ void handleGuildMemberChunk(cJSON *root)
 	}
 	
 	printf("Recieved member chunk for guild id %lu. Added %i users!\n", guildId, usersAdded);
+}
+
+void handlePresenceUpdate(cJSON *root)
+{
+	root = cJSON_GetObjectItemCaseSensitive(root, "d");
+	
+	cJSON *guildObject = cJSON_GetObjectItemCaseSensitive(root, "guild_id");
+	cJSON *userObject = cJSON_GetObjectItemCaseSensitive(root, "user");
+	cJSON *idObject = cJSON_GetObjectItemCaseSensitive(userObject, "id");
+	cJSON *presenceObject = cJSON_GetObjectItemCaseSensitive(root, "status");
+	// TODO game support?
+	
+	uint64_t guildId = strtoull(guildObject->valuestring, NULL, 10);
+	uint64_t userId = strtoull(idObject->valuestring, NULL, 10);
+
+	struct server *server = glob_servers;
+
+	while (server)
+	{
+		if (server->serverId == guildId)
+		{
+			struct server_user *user = server->users;
+
+			while (user)
+			{
+				if (user->user->id == userId)
+				{
+					if (strcmp(presenceObject->valuestring, "online") == 0)
+					{
+						user->status = MS_Online;
+					}
+					else if (strcmp(presenceObject->valuestring, "idle") == 0)
+					{
+						user->status = MS_Idle;
+					}
+					else if (strcmp(presenceObject->valuestring, "dnd") == 0)
+					{
+						user->status = MS_NotDisturb;
+					}
+					else
+					{
+						user->status = MS_Offline;
+					}
+
+					// TODO cli callback!
+					
+					break;
+				}
+				user = user->next;
+			}
+			
+			break;
+		}
+
+		server = server->next;
+	}
 }
 
 void freeServers(struct server *node)
