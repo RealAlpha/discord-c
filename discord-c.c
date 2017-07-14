@@ -388,6 +388,9 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 		sprintf(packet, "{\"op\":8, \"d\":{\"guild_id\": \"%lu\", \"query\": \"\", \"limit\": 0}}", guildId);
 		printf("Request packet: %s\n", packet);
 		websocket_send(socket, packet, strlen(packet), 0);
+		
+		// Sleep for a second (so it won't overload the service thread?) and switch to the next one
+		usleep(10000);
 		guild = guild->next;
 	}
 	
@@ -1060,6 +1063,7 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 			message = message->next;
 		}
 		// Cleanup time!
+		curl_slist_free_all(list);
 		curl_easy_cleanup(curl);
 		cJSON_Delete(root);
 		free(s.ptr);
