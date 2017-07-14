@@ -1,3 +1,15 @@
+#pragma once
+#include "websocket.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+#include "pthread.h"
+#include "cJSON.h"
+
+#include "signal.h"
+
+#include <curl/curl.h>
+
 // Enum to store a user's status
 enum memberStatus
 {
@@ -160,9 +172,9 @@ typedef void (*discord_message_updated_callback)(struct message message);
 struct discord_callbacks {
         discord_login_complete_callback login_complete;
         discord_memberfetch_complete_callback users_found;
-        discord_message_posted_callback message_posted;
+	discord_message_posted_callback message_posted;
         discord_message_updated_callback message_updated;
-	discord_presence_updated_callback presence_updated;
+	discord_presence_updated_callback presence_updated ;
 //      websocket_connection_error_callback on_connection_error;
 };
 
@@ -182,7 +194,7 @@ struct messages *getMessagesInChannel(uint64_t channel, int ammount); // TODO cr
 void finishedRetrievingMembers();
 
 // Sets up a discord client
-void createClient(struct discord_callbacks *callbacks, char *token);
+client_websocket_t *createClient(struct discord_callbacks *callbacks, char *token);
 
 // Loads a guild into memory (fetches users, presences and starts to recieve events such as precense update etc)
 void loadGuild(client_websocket_t *socket, uint64_t guildId);

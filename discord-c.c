@@ -32,14 +32,6 @@ uint8_t isRetrievingMembers  = 0;
 
 int sequenceNumber = 0;
 
-//void finishedRetrievingMembers();
-
-void sigintHandler(int sig)
-{
-	cleanup();
-	exit(1);
-}
-
 void cleanup()
 {
 	freeServers(glob_servers);
@@ -56,28 +48,7 @@ void cleanup()
 	}
 }
 
-int main(int argc, char *argv[])
-{
-	signal(SIGINT, sigintHandler);
-	fprintf(stderr, "Discord-c starting up!");
-	
-	createClient(NULL, "Mjg3MTc2MDM1MTUyMjk3OTg1.DD_c7w.V9NC_tbWiUZYv0jTEGTgyATLl6Q");
-
-	// Test send message
-	sleep(20);
-	sendMessage("Hello, world!", 332535524869013505, 0);
-	getMessagesInChannel(332535524869013505, 10);
-	loadGuild(globWebSocket, 181866934353133570);
-
-	// Keep the main thread occupied so the program doesn't exit
-	while(1)
-	{
-		sleep(1);
-	}
-
-}
-
-void createClient(struct discord_callbacks *callbacks, char *token)
+client_websocket_t *createClient(struct discord_callbacks *callbacks, char *token)
 {
 	// Set the local websocket callbacks up (use a pointer to avoid threads getting issues when this function terminates)
 	client_websocket_callbacks_t *myCallbacks = malloc(sizeof(client_websocket_callbacks_t));
@@ -107,6 +78,8 @@ void createClient(struct discord_callbacks *callbacks, char *token)
 	pthread_create(&serviceThread, NULL, thinkFunction, (void*)myWebSocket);
 	// As we won't be joining the thread, we can safefully detach (which avoids memory leaks)
 	pthread_detach(serviceThread);
+
+	return myWebSocket;
 }
 
 int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t length) {
@@ -871,7 +844,9 @@ void handleMessageUpdated(cJSON *root)
 	{
 		// Something went wrong!
 		fprintf(stderr, "Something went wrong while handling message update! (not all JSON filled out)\n");
-		fprintf(stderr, "JSON: %s", cJSON_Print(root));
+		char *jsonString = cJSON_Print(root);
+		fprintf(stderr, "JSON: %s", jsonString);
+		free(jsonString);
 		return;
 	}
 	
@@ -1158,7 +1133,7 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 			if (user == NULL)
 			{
 				printf("Unable to find author of the message!\n");
-				return NULL;
+				break;
 			}
 
 
