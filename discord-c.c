@@ -67,6 +67,7 @@ int main(int argc, char *argv[])
 	sleep(20);
 	sendMessage("Hello, world!", 332535524869013505, 0);
 	getMessagesInChannel(332535524869013505, 10);
+	loadGuild(globWebSocket, 181866934353133570);
 
 	// Keep the main thread occupied so the program doesn't exit
 	while(1)
@@ -231,6 +232,10 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 		}
 		else if (strcmp(eventName, "GUILD_MEMBERS_CHUNK") == 0)
 		{
+			//handleGuildMemberChunk(root); TODO switched to request-based
+		}
+		else if (strcmp(eventName, "GUILD_SYNC") == 0)
+		{
 			handleGuildMemberChunk(root);
 		}
 		else if(strcmp(eventName, "MESSAGE_ACK") == 0)
@@ -242,6 +247,10 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 		{
 			// Message has been updated
 			handleMessageUpdated(root);
+		}
+		else if(strcmp(eventName, "PRESENCE_UPDATE") == 0)
+		{
+			printf("Recieved presence update!\nJSON: %s\n", cJSON_Print(root));
 		}
 		else
 		{
@@ -384,15 +393,7 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 			roleObject = roleObject->next;
 		}
 
-		// TODO Is 256 chars long enough/too long/etc?
-		char packet[256];
-
-		sprintf(packet, "{\"op\":8, \"d\":{\"guild_id\": \"%lu\", \"query\": \"\", \"limit\": 0}}", guildId);
-		printf("Request packet: %s\n", packet);
-		websocket_send(socket, packet, strlen(packet), 0);
-		
-		// Sleep for a second (so it won't overload the service thread?) and switch to the next one
-		usleep(10000);
+		// Go to the next guild
 		guild = guild->next;
 	}
 	
@@ -409,6 +410,15 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 
 }
 
+void loadGuild(client_websocket_t *socket, uint64_t guildId)
+{
+	char packet[128];
+	// Send a guild sync (which should return member chunks?)
+	sprintf(packet, "{\"op\":12,\"d\":[\"%lu\"]}", guildId);
+
+	websocket_send(socket, packet, strlen(packet), 0);
+}
+
 void handleGuildMemberChunk(cJSON *root)
 {
 	// Go from ugly global varialbe -> local variable
@@ -419,8 +429,9 @@ void handleGuildMemberChunk(cJSON *root)
 
 	root = cJSON_GetObjectItemCaseSensitive(root, "d");
 
-	cJSON *guildIdItem = cJSON_GetObjectItemCaseSensitive(root, "guild_id");
+	cJSON *guildIdItem = cJSON_GetObjectItemCaseSensitive(root, "id");
 	cJSON *membersObject = cJSON_GetObjectItemCaseSensitive(root, "members");
+	// TODO presences object
 	
 	cJSON *memberObject = membersObject->child;
 	

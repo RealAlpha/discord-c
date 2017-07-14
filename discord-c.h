@@ -170,3 +170,4 @@ void finishedRetrievingMembers();
 // Sets up a discord client
 void createClient(struct discord_callbacks *callbacks, char *token);
 
+void loadGuild(client_websocket_t *socket, uint64_t guildId);
