@@ -431,8 +431,8 @@ void handleGuildMemberChunk(cJSON *root)
 
 	cJSON *guildIdItem = cJSON_GetObjectItemCaseSensitive(root, "id");
 	cJSON *membersObject = cJSON_GetObjectItemCaseSensitive(root, "members");
-	// TODO presences object
-	
+	cJSON *statusesObject = cJSON_GetObjectItemCaseSensitive(root, "presences");
+
 	cJSON *memberObject = membersObject->child;
 	
 	// Grab the guild/server it's id	
@@ -531,12 +531,55 @@ void handleGuildMemberChunk(cJSON *root)
 
 			roleObject = roleObject->next;
 		}
-		
+
+		enum memberStatus status = MS_Offline;
+
+		cJSON *statusObject = statusesObject->child;
+
+		while(statusObject)
+		{
+			cJSON *userObject = cJSON_GetObjectItemCaseSensitive(statusObject, "user");
+			if (userObject)
+			{
+				cJSON *idObjectItem = cJSON_GetObjectItemCaseSensitive(userObject, "id");
+				if (idObjectItem)
+				{
+					uint64_t userId = strtoull(idObjectItem->valuestring, NULL, 10);
+					if (user->id == userId)
+					{
+						cJSON *statusStringObject = cJSON_GetObjectItemCaseSensitive(statusObject, "status");
+						if (statusStringObject)
+						{
+							if (strcmp(statusStringObject->valuestring, "online") == 0)
+							{
+								status = MS_Online;
+							}
+							else if (strcmp(statusStringObject->valuestring, "idle") == 0)
+							{
+								status = MS_Idle;
+							}
+							else if (strcmp(statusStringObject->valuestring, "dnd") == 0)
+							{
+								status = MS_NotDisturb;
+							}
+							else
+							{
+								status = MS_Offline;
+							}
+						}
+					}
+				}	
+			}
+			
+			statusObject = statusObject->next;
+		}
+
 		struct server_user *userElement = malloc(sizeof(struct server_user));
 		
 		userElement->user = user;
 		userElement->roles = roles;
-		
+		userElement->status = status;
+
 		userElement->next = server->users;
 		server->users = userElement;
 

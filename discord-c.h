@@ -1,3 +1,12 @@
+// Enum to store a user's status
+enum memberStatus
+{
+	MS_Online,
+	MS_Idle,
+	MS_NotDisturb,
+	MS_Offline
+};
+
 // Sends a message with "content" as a body to the channel with the "channel" id. Makes the message say out loud is isTTS is true (and the server doesn't ban it)
 void sendMessage(/* TODO some kind of connection object?, */char *content, uint64_t channel, uint8_t isTTS);
 
@@ -68,6 +77,8 @@ struct server_user
 
         // TODO roles & other server specific stuff
         struct roles *roles;
+	
+	enum memberStatus status;
 
         // Linked list next node
         struct server_user *next;
@@ -170,4 +181,5 @@ void finishedRetrievingMembers();
 // Sets up a discord client
 void createClient(struct discord_callbacks *callbacks, char *token);
 
+// Loads a guild into memory (fetches users, presences and starts to recieve events such as precense update etc)
 void loadGuild(client_websocket_t *socket, uint64_t guildId);
