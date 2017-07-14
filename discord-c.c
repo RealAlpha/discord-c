@@ -68,11 +68,9 @@ client_websocket_t *createClient(struct discord_callbacks *callbacks, char *toke
 
 	// TODO Make this grab the gateway instead of hard-coding it
 	websocket_connect(myWebSocket, "wss://gateway.discord.gg/?v=5&encoding=json");
-	printf("Just tried to connect");
 
 	sleep(2);
 	
-	printf("Creating threads...");
 	// Offload websocket_think() to another thread so we can use mutex locks!
 	//pthread_t serviceThread;
 	pthread_create(&serviceThread, NULL, thinkFunction, (void*)myWebSocket);
@@ -87,8 +85,6 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 	char *buffer = malloc(length + 1);
 	strncpy(buffer, data, length);
 	buffer[length] = '\0';
-
-	//printf("\n\nRecieved callback!\nContent:\n%s\n\n", data);
 	
 	// Parse the json using cJSON
 	cJSON *root = cJSON_Parse(data);
@@ -103,7 +99,6 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 	if(cJSON_IsNumber(opCodeItem))
 	{
 		int opcode = opCodeItem->valueint;
-		printf("Opcode: %i", opcode);
 		
 		// Is it not an event and is it currently retrieving members? Well stop that, we're done getting those packages!
 		if (opcode != 0 && isRetrievingMembers == 1)
@@ -119,7 +114,7 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 			case 9:
 				// Invalid Session
 				// Invalid token / tried to auth too often!
-				printf("Invalid session (#9)! Is your token valid?");
+				fprintf(stderr, "Invalid session (#9)! Is your token valid?");
 				break;
 			case 10:
 				// Hello
@@ -142,7 +137,7 @@ int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t le
 int client_ws_connection_error_callback(client_websocket_t* socket, char* reason, size_t length) {
 	//discord_client_t* client = (discord_client_t*)websocket_get_userdata(socket);
 
-	printf("Connection error: %s (%zu)\n", reason, length);
+	fprintf(stderr, "Connection error: %s (%zu)\n", reason, length);
 
 	//client_disconnect(client);
 	return 0;
@@ -158,7 +153,7 @@ void *heartbeatFunction(void *websocket)
 		// Wait heartbeat interval seconds; TODO make this not hard-coded
 		usleep(41250*1000);
 
-		printf("Sending heartbeat...\n");
+		fprintf(stderr, "Sending heartbeat...\n");
 		// Create an operation 1 (=heartbeat) packet and send it off
 		char packet[128];
 		sprintf(packet, "{\"op\": 1, \"d\": %i}", sequenceNumber);
@@ -172,16 +167,12 @@ void *thinkFunction(void *websocket)
 
 	while (1)
 	{
-		//printf("Think Loop!\n");
 		websocket_think(myWebSocket);
-		//usleep(200000);
 	}
 }
 
 void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 {
-	printf("Recieved event displatch!\n");
-	
 	// Attempt to get the event (the "t" property)
 	cJSON *eventNameItem = cJSON_GetObjectItemCaseSensitive(root, "t");
 	
@@ -222,14 +213,13 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 			handleMessageUpdated(root);
 		}
 		else if(strcmp(eventName, "PRESENCE_UPDATE") == 0)
-		{
-			//printf("Recieved presence update!\nJSON: %s\n", cJSON_Print(root));
+		{	
 			handlePresenceUpdate(root);
 		}
 		else
 		{
 			// Unsupported event!
-			printf("Unsupported event! Event: %s\n", eventName);
+			fprintf(stderr, "Unsupported event! Event: %s\n", eventName);
 		}
 	}
 	else
@@ -241,7 +231,6 @@ void handleEventDispatch(client_websocket_t *socket, cJSON *root)
 
 void handleIdentify(client_websocket_t *socket)
 {
-	printf("Handling Identification!\n");
 	// Buffer to store the request in (should be < 300 characters)
 	char request[300];
        	sprintf(request, "{\"op\":2,\"d\":{\"token\":\"%s\",\"properties\":{\"$os\":\"linux\",\"$browser\":\"discord-c\",\"$device\":\"discord-c\",\"$referrer\":\"\",\"$referring_domain\":\"\"},\"compress\":false,\"large_threshold\":250,\"shard\":[1,10]}}", client_token);
@@ -252,8 +241,7 @@ void handleIdentify(client_websocket_t *socket)
 
 void handleOnReady(client_websocket_t *socket, cJSON *root)
 {
-	// TODO dispatch the heartbeat thread from here instead of in main();
-	printf("Successfully established connection!\n");
+	fprintf(stderr, "Successfully established connection!\n");
 	
 	// Required? Get the data part.
 	root = cJSON_GetObjectItemCaseSensitive(root, "d");
@@ -284,10 +272,8 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 		}
 		else
 		{
-			printf("Error while processing JSON!\n");
+			fprintf(stderr, "Error while processing JSON!\n");
 		}
-		
-		printf("Guild name: %s (id: %lu)\n", guildNameObject->valuestring, guildId);
 		
 		// Create struct to hold server
 		struct server *server = malloc(sizeof(struct server));
@@ -416,7 +402,7 @@ void handleGuildMemberChunk(cJSON *root)
 
 	if (servers == NULL)
 	{
-		printf("Error: No servers!\n");
+		fprintf(stderr, "Error: No servers!\n");
 		return;
 	}
 	
@@ -426,32 +412,16 @@ void handleGuildMemberChunk(cJSON *root)
 	{
 		if (_server->serverId == guildId)
 		{
-			printf("Found guild!");
 			server = _server;
 			break;
 		}
 		_server = _server->next;
 	}
 	
-/*
-	for (struct server *_server = servers; _server->next != NULL; _server = _server->next)
-	{
-		if (server)
-		{
-			printf("server itteration\n");
-			if (_server->serverId == guildId)
-			{
-				// Found!
-				server = _server;
-				break;
-			}
-		}
-	}
-*/
 	if (server == NULL)
 	{
 		// Couldn't find server? Something went wrong!
-		printf("Unable to find server!\n");
+		fprintf(stderr, "Unable to find server!\n");
 	}
 
 	// Linked list to hold the members in this chunk
@@ -560,8 +530,6 @@ void handleGuildMemberChunk(cJSON *root)
 		memberObject = memberObject->next;
 		usersAdded++; // TODO
 	}
-	
-	printf("Recieved member chunk for guild id %lu. Added %i users!\n", guildId, usersAdded);
 }
 
 void handlePresenceUpdate(cJSON *root)
@@ -725,11 +693,10 @@ void freeMessageChain(struct message_chain *node)
 void finishedRetrievingMembers()
 {
 	isRetrievingMembers = 0;
-	printf("Finished retrieving members!\n");
-	
+		
 	// Run callback - TODO uncomment when it's actually set up
 	if (!cli_callbacks || !cli_callbacks->users_found)
-		printf("You didn't set up the users found callback!\n");
+		fprintf(stderr, "You didn't set up the users found callback!\n");
 	else
 		cli_callbacks->users_found(glob_servers);
 }
@@ -759,14 +726,11 @@ void handleMessagePosted(cJSON *root)
 		if (channel)
 			break;
 
-		printf("Server id: %lu|Server name: %s\n", server->serverId, server->name);
 		struct server_channel *_channel = server->channels;
 		while (_channel)
 		{
-			//printf("Channel id: %llu|Required id: %llu|Channel Name: %s", _channel->id, channelId, _channel->name);
 			if (channelId == _channel->id)
 			{
-				printf("Found channel with name: %s\n", _channel->name);
 				channel = _channel;
 				break;
 			}
@@ -783,7 +747,7 @@ void handleMessagePosted(cJSON *root)
 
 	if(server == NULL || channel == NULL)
 	{
-		printf("Error while recieving message! User not in channel!\n");
+		fprintf(stderr, "Error while recieving message! User not in channel!\n");
 		return;
 	}
 	
@@ -792,7 +756,6 @@ void handleMessagePosted(cJSON *root)
 	struct server_user *user = server->users;
 	while (user)
 	{
-		//printf("Currently itterating over user: %s (%llu). Required: %llu\n", user->user->username, user->user->id, userId);
 		if (user->user->id == userId)
 		{
 			// Found user! (no need to copy it as breaking here will keep user where it currently is)
@@ -804,7 +767,7 @@ void handleMessagePosted(cJSON *root)
 
 	if (user == NULL)
 	{
-		printf("Unable to find author of the message!\n");
+		fprintf(stderr, "Unable to find author of the message!\n");
 		return;
 	}
 
@@ -814,8 +777,6 @@ void handleMessagePosted(cJSON *root)
 	message.channel = channel;
 	message.server = server;
 	message.body = contentObject->valuestring; // TODO strcopy it instead (current solution gets freed once this function retruns)? If so, make a linked list of messages (message-chain) so it can easily be freed.
-
-	printf("New message:\n%s\n(by: %s (%lu) in %s/%s)\n", message.body, message.author->user->username, message.author->user->id, message.server->name, message.channel->name);
 
 	// Call the cli back with this message
 	if (!cli_callbacks || !cli_callbacks->message_posted)
@@ -864,14 +825,11 @@ void handleMessageUpdated(cJSON *root)
 		if (channel)
 			break;
 
-		printf("Server id: %lu|Server name: %s\n", server->serverId, server->name);
 		struct server_channel *_channel = server->channels;
 		while (_channel)
 		{
-			//printf("Channel id: %llu|Required id: %llu|Channel Name: %s", _channel->id, channelId, _channel->name);
 			if (channelId == _channel->id)
 			{
-				printf("Found channel with name: %s\n", _channel->name);
 				channel = _channel;
 				break;
 			}
@@ -888,7 +846,7 @@ void handleMessageUpdated(cJSON *root)
 
 	if(server == NULL || channel == NULL)
 	{
-		printf("Error while recieving message! User not in channel!\n");
+		fprintf(stderr, "Error while recieving message! User not in channel!\n");
 		return;
 	}
 	
@@ -897,7 +855,6 @@ void handleMessageUpdated(cJSON *root)
 	struct server_user *user = server->users;
 	while (user)
 	{
-		//printf("Currently itterating over user: %s (%llu). Required: %llu\n", user->user->username, user->user->id, userId);
 		if (user->user->id == userId)
 		{
 			// Found user! (no need to copy it as breaking here will keep user where it currently is)
@@ -909,7 +866,7 @@ void handleMessageUpdated(cJSON *root)
 
 	if (user == NULL)
 	{
-		printf("Unable to find author of the message!\n");
+		fprintf(stderr, "Unable to find author of the message!\n");
 		return;
 	}
 
@@ -920,8 +877,6 @@ void handleMessageUpdated(cJSON *root)
 	message.server = server;
 	message.body = contentObject->valuestring; // TODO strcopy it instead (current solution gets freed once this function retruns)? If so, make a linked list of messages (message-chain) so it can easily be freed.
 
-	printf("Message Updated:\n%s\n(by: %s (%lu) in %s/%s)\n", message.body, message.author->user->username, message.author->user->id, message.server->name, message.channel->name);
-	
 	// Call the cli back
 	if (!cli_callbacks || !cli_callbacks->message_updated)
 		fprintf(stderr, "You didn't set up the message update callback!\n");
@@ -1075,14 +1030,12 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 			if (channel)
 				break;
 
-			printf("Server id: %lu|Server name: %s\n", server->serverId, server->name);
 			struct server_channel *_channel = server->channels;
 			while (_channel)
 			{
 				//printf("Channel id: %llu|Required id: %llu|Channel Name: %s", _channel->id, channelId, _channel->name);
 				if (channelId == _channel->id)
 				{
-					printf("Found channel with name: %s\n", _channel->name);
 					channel = _channel;
 					break;
 				}
@@ -1099,7 +1052,7 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 
 		if(server == NULL || channel == NULL)
 		{
-			printf("Error while recieving message! User not in channel!\n");
+			fprintf(stderr, "Error while recieving message! User not in channel!\n");
 			return NULL;
 		}
 
@@ -1132,7 +1085,7 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 
 			if (user == NULL)
 			{
-				printf("Unable to find author of the message!\n");
+				fprintf(stderr, "Unable to find author of the message!\n");
 				break;
 			}
 
