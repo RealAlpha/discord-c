@@ -334,6 +334,7 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 			uint64_t roleId = strtoull((const char *)cJSON_GetObjectItemCaseSensitive(roleObject, "id")->valuestring, NULL, 10);
 			// TODO figure out how on earth this is supposed to represent a color
 			uint32_t roleColor = cJSON_GetObjectItemCaseSensitive(roleObject, "color")->valueint;
+			uint32_t rolePosition = cJSON_GetObjectItemCaseSensitive(roleObject, "position")->valueint;
 			char *roleName = cJSON_GetObjectItemCaseSensitive(roleObject, "name")->valuestring;
 			// TODO the rest of the role's properties
 
@@ -345,6 +346,7 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 			roleElement->role = role;
 			role->id = roleId;
 			role->color = roleColor;
+			role->position = rolePosition;
 			role->name = malloc(strlen(roleName) + 1);
 			strcpy(role->name, roleName);
 			
@@ -465,8 +467,11 @@ void handleGuildMemberChunk(cJSON *root)
 				{
 					// Found correct role! Add it to the user roles linked list.
 					struct roles *roleElement = malloc(sizeof(struct roles));
+					roleElement->role = role->role;
+
 					roleElement->next = roles;
 					roles = roleElement;
+					
 					break;
 				}
 
@@ -541,7 +546,9 @@ void handlePresenceUpdate(cJSON *root)
 	cJSON *idObject = cJSON_GetObjectItemCaseSensitive(userObject, "id");
 	cJSON *presenceObject = cJSON_GetObjectItemCaseSensitive(root, "status");
 	// TODO game support?
-	
+	if (!guildObject || !idObject)
+		return;
+
 	uint64_t guildId = strtoull(guildObject->valuestring, NULL, 10);
 	uint64_t userId = strtoull(idObject->valuestring, NULL, 10);
 
