@@ -104,6 +104,8 @@ void createClient(struct discord_callbacks *callbacks, char *token)
 	// Offload websocket_think() to another thread so we can use mutex locks!
 	//pthread_t serviceThread;
 	pthread_create(&serviceThread, NULL, thinkFunction, (void*)myWebSocket);
+	// As we won't be joining the thread, we can safefully detach (which avoids memory leaks)
+	pthread_detach(serviceThread);
 }
 
 int client_ws_receive_callback(client_websocket_t* socket, char* data, size_t length) {
@@ -398,7 +400,9 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 	connection.webSocket = socket;
 	// Spawn the heartbeat thread
 	pthread_create(&heartbeatThread, NULL, heartbeatFunction, (void*)socket);
-	
+	// As we won't be joining, we can detach to avoid memory leakage
+	pthread_detach(heartbeatThread);
+
 	// Successfully connected! Callback time
 	if (cli_callbacks != NULL && cli_callbacks->login_complete != NULL)
 		cli_callbacks->login_complete(connection, glob_servers);
