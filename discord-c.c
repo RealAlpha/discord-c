@@ -812,9 +812,9 @@ void handleMessageUpdated(cJSON *root)
 	{
 		// Something went wrong!
 		fprintf(stderr, "Something went wrong while handling message update! (not all JSON filled out)\n");
-		char *jsonString = cJSON_Print(root);
-		fprintf(stderr, "JSON: %s", jsonString);
-		free(jsonString);
+		//char *jsonString = cJSON_Print(root);
+		//fprintf(stderr, "JSON: %s", jsonString);
+		//free(jsonString);
 		return;
 	}
 	
@@ -891,6 +891,11 @@ void handleMessageUpdated(cJSON *root)
 		cli_callbacks->message_updated(message);
 }
 
+size_t hide_curl_write_data(void *buffer, size_t size, size_t nmemb, void *userp)
+{
+   return size * nmemb;
+}
+
 void sendMessage(/* TODO some kind of connection object?, */char *content, uint64_t channel, uint8_t isTTS)
 {
 	// Creeate a curl "object"
@@ -914,6 +919,9 @@ void sendMessage(/* TODO some kind of connection object?, */char *content, uint6
 			cJSON_AddFalseToObject(root, "tts");
 		// Put into a char * so it can be manually freed; Not handled by cJSON_Delete_()
 		char *jsonPayload = cJSON_Print(root);
+		
+		// Be sure to not log the output
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, hide_curl_write_data);
 
 		// Set the channel it needs  to be sent to
 		curl_easy_setopt(curl, CURLOPT_URL, channelMessagesLink);

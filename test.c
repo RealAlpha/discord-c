@@ -31,11 +31,28 @@ int main(int argc, char *argv[])
 	sendMessage("Hello, world!", 332535524869013505, 0);
 	getMessagesInChannel(332535524869013505, 10);
 	
-
 	// Keep the main thread occupied so the program doesn't exit
 	while(1)
 	{
-		sleep(1);
+		char characters[2001];
+		char lastCharacter = ' ';
+		int len = 0;
+		while (lastCharacter != '\n' && len <= 2000)
+		{
+			lastCharacter = getchar();
+			characters[len] = lastCharacter;
+			len++;
+		}
+		// Null-terminate the string
+		characters[len] = '\0';
+		if (strncmp(characters, "q", 1) == 0)
+		{
+			cleanup();
+			return 0;
+		}
+		
+		sendMessage(characters, 181866934353133570, 0);
+	//	sleep(1);
 	}
 
 }
@@ -87,19 +104,12 @@ int hexToNum(char hex)
 
 void onMessagePostedCallback(struct message message)
 {
-	printf("Recieved new message!\n");
-	printf("%s > %s\n", message.author->user->username, message.body);
+//	printf("Recieved new message!\n");
+//	printf("%s > %s\n", message.author->user->username, message.body);
 	
 	char array[7] = "000000";
 	int counter = 5;
-	// TODO make this safer
-	if (message.author)
-		printf("author reached!\n");
-		if (message.author->roles)
-			printf("roles reached!\n");
-			if (message.author->roles->role)
-				printf("Role reached!\n");
-	
+	// TODO make this safer etc
 	struct role *role = NULL;
 	struct roles *role_trav = message.author->roles;
 
@@ -172,8 +182,10 @@ void onMessagePostedCallback(struct message message)
 	//printf("\e]4;1;rgb:%c%c/%c%c/%c%c\e\\\e[31m%s > %s\e[m\n", array[0], array[1], array[2], array[3], array[4], array[5], message.author->user->username, message.body);
 	//printf("\x1B]4;1;rgb:%c%c/%c%c/%c%c\e\\\e[31m%s > %s \x1B[0m\n", array[0], array[1], array[2], array[3], array[4], array[5], message.author->user->username, message.body);
 	
-	printf("%lu|#%s|R:%i B:%i B: %i\n", role->color, array, r, g, b);
-	printf("\x1b[38;2;%i;%i;%imTRUECOLOR\x1b[0m\n", r, g, b);
+//	printf("%lu|#%s|R:%i B:%i B: %i\n", role->color, array, r, g, b);
+//	printf("\x1b[38;2;%i;%i;%imTRUECOLOR\x1b[0m\n", r, g, b);
+	printf("\r\x1b[38;2;%i;%i;%im%s > %s > %s\x1b[0m\n", r, g, b, message.author->user->username, message.channel->name, message.body);
+
 }
 
 void onReadyCallback(struct connection connection, struct server *servers)
@@ -191,5 +203,5 @@ void onReadyCallback(struct connection connection, struct server *servers)
 	// Load a guild
 	client_websocket_t *socket = connection.webSocket;
 	loadGuild(socket, 181866934353133570);
-	
+	//printf(">");	
 }
