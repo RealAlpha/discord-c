@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	callbacks.presence_updated = NULL;
 	callbacks.DM_posted = onDMPostedCallback;
 
-	client_websocket_t *socket = createClient(&callbacks, "Mjg3MTc2MDM1MTUyMjk3OTg1.DD_c7w.V9NC_tbWiUZYv0jTEGTgyATLl6Q");
+	client_websocket_t *socket = createClient(&callbacks, "<YOUR TOKEN HERE>");
 
 	// Test send message
 	sleep(20);
