@@ -110,6 +110,22 @@ struct server_channel
         struct server_channel *next;
 };
 
+struct private_channel
+{
+	// Recipient's data
+	struct user *recipient;
+
+	uint64_t id;
+};
+
+// Linked list to store multiple private_channels
+struct DM_chat
+{
+	struct private_channel *channel;
+
+	struct DM_chat *next;
+};
+
 struct server
 {
         // Server name
@@ -142,6 +158,16 @@ struct message
         uint8_t edited;
 };
 
+struct DM_message
+{
+	// Channel
+	struct private_channel *channel;
+	// Author
+	struct user *author;
+	// Text
+	char *body;
+};
+
 struct messages
 {
         // TODO should be pointer instead?
@@ -161,7 +187,7 @@ typedef void (*discord_memberfetch_complete_callback)(struct server *servers);
 typedef void (*discord_message_posted_callback)(struct message message); // TODO should this be a pointer instead? Would that add a ton of overhead t$
 typedef void (*discord_message_updated_callback)(struct message message);
 typedef void (*discord_presence_updated_callback)(struct server_user *user);
-
+typedef void (*discord_DM_message_posted_callback)(struct DM_message message);
 /*
 typedef void (*discord_login_complete_callback)(struct connection connection, struct server *servers);
 typedef void (*discord_memberfetch_complete_callback)(struct server *servers);
@@ -174,7 +200,8 @@ struct discord_callbacks {
         discord_memberfetch_complete_callback users_found;
 	discord_message_posted_callback message_posted;
         discord_message_updated_callback message_updated;
-	discord_presence_updated_callback presence_updated ;
+	discord_presence_updated_callback presence_updated;
+	discord_DM_message_posted_callback DM_posted;
 //      websocket_connection_error_callback on_connection_error;
 };
 
@@ -188,6 +215,7 @@ void freeUserRoles(struct roles *node);
 void freeRoles(struct roles *node);
 void freeMessageChain(struct message_chain *node);
 void freeMessages(struct messages *node);
+void freeDMChannels(struct DM_chat *node);
 
 struct messages *getMessagesInChannel(uint64_t channel, int ammount); // TODO create before/around/after functions too?
 

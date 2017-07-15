@@ -3,6 +3,7 @@
 #include "signal.h"
 
 void onMessagePostedCallback(struct message message);
+void onDMPostedCallback(struct DM_message message);
 void onReadyCallback(struct connection connection, struct server *server);
 
 void sigintHandler(int sig)
@@ -30,6 +31,7 @@ int main(int argc, char *argv[])
 	callbacks.message_posted = onMessagePostedCallback;
 	callbacks.message_updated = NULL;
 	callbacks.presence_updated = NULL;
+	callbacks.DM_posted = onDMPostedCallback;
 
 	client_websocket_t *socket = createClient(&callbacks, "Mjg3MTc2MDM1MTUyMjk3OTg1.DD_c7w.V9NC_tbWiUZYv0jTEGTgyATLl6Q");
 
@@ -220,4 +222,13 @@ void onReadyCallback(struct connection connection, struct server *servers)
 	client_websocket_t *socket = connection.webSocket;
 	loadGuild(socket, 181866934353133570);
 	//printf(">");	
+}
+
+void onDMPostedCallback(struct DM_message message)
+{
+	if (message.author)
+		printf("%s > private > %s\n", message.author->username, message.body);
+	else
+		// Message sent by cli user; Don't do anything (yet)
+		return;
 }

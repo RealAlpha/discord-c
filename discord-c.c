@@ -29,13 +29,15 @@ struct message_chain *message_chain = NULL;
 char client_token[60];
 // Super ugly global variable to store if it's currently awaiting member fragments
 uint8_t isRetrievingMembers  = 0;
-
+// Another one to store the DM chats the user has
+struct DM_chat *DM_channels = NULL;
 int sequenceNumber = 0;
 
 void cleanup()
 {
 	freeServers(glob_servers);
 	freeMessageChain(message_chain);
+	freeDMChannels(DM_channels);
 
 	// Kill the threads (TODO could this cause issues?)
 	pthread_cancel(serviceThread);
@@ -251,6 +253,37 @@ void handleOnReady(client_websocket_t *socket, cJSON *root)
 	// Get the friends
 	cJSON *friends = cJSON_GetObjectItemCaseSensitive(root, "relationships");
 	
+	cJSON *DM = DMs->child;
+
+	while (DM)
+	{
+		cJSON *recipientObject = cJSON_GetObjectItemCaseSensitive(DM, "recipient");
+		uint64_t recipientId = strtoull(cJSON_GetObjectItemCaseSensitive(recipientObject, "id")->valuestring, NULL, 10);
+
+		cJSON *recipientUsernameObject = cJSON_GetObjectItemCaseSensitive(recipientObject, "username");
+		char *username = malloc(strlen(recipientUsernameObject->valuestring) + 1);
+		strcpy(username, recipientUsernameObject->valuestring);
+		
+		uint64_t channelId = strtoull(cJSON_GetObjectItemCaseSensitive(DM, "id")->valuestring, NULL, 10);
+		struct private_channel *channel = malloc(sizeof(struct private_channel));
+		struct user *recipient = malloc(sizeof(struct user));
+		
+		recipient->username = username;
+		recipient->id = recipientId;
+		
+		channel->recipient = recipient;
+		channel->id = channelId;
+		
+		struct DM_chat *channelElement = malloc(sizeof(struct DM_chat));
+		
+		channelElement->channel = channel;
+
+		channelElement->next = DM_channels;
+		DM_channels = channelElement;
+
+		DM = DM->next;
+	}
+
 	// Get the servers the user is in
 	cJSON *guilds = cJSON_GetObjectItemCaseSensitive(root, "guilds");
 	
@@ -697,6 +730,21 @@ void freeMessageChain(struct message_chain *node)
 	free(node);
 }
 
+void freeDMChannels(struct DM_chat *node)
+{
+	if (node == NULL)
+		return;
+
+	freeDMChannels(node->next);
+
+	free(node->channel->recipient->username);
+	free(node->channel->recipient);
+	
+	free(node->channel);
+	
+	free(node);
+}
+
 void finishedRetrievingMembers()
 {
 	isRetrievingMembers = 0;
@@ -754,6 +802,31 @@ void handleMessagePosted(cJSON *root)
 
 	if(server == NULL || channel == NULL)
 	{
+		// Search DM chats
+		struct DM_chat *DM = DM_channels;
+		while (DM)
+		{
+			if (DM->channel->id == channelId)
+			{
+				struct DM_message message; // TODO message chain for DMs?
+				message.channel = DM->channel;
+				message.body = contentObject->valuestring;
+
+				if (DM->channel->recipient->id == userId)
+					message.author = DM->channel->recipient;
+				else
+				{
+					// It has to be you
+					message.author = NULL; // NULL = user himself? TODO
+				}
+				if (cli_callbacks != NULL && cli_callbacks->DM_posted != NULL)
+					cli_callbacks->DM_posted(message);
+
+				return;
+			}
+
+			DM = DM->next;
+		}
 		fprintf(stderr, "Error while recieving message! User not in channel!\n");
 		return;
 	}
