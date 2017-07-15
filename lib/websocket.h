@@ -4,8 +4,6 @@
 #include <libwebsockets.h>
 #include <pthread.h>
 
-#include "discord.h"
-
 typedef struct websocket_callbacks client_websocket_callbacks_t;
 typedef struct websocket_client client_websocket_t;
 
