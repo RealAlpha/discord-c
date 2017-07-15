@@ -1,6 +1,8 @@
 # Discord-C
 A c discord API....that needs some work
 
+![Screenshot of example app](http://i.imgur.com/dLAEncM.png?1)
+
 # Build Discord-C
 ### Build the library & example application
 Clone Discord-C
