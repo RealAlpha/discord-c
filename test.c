@@ -11,6 +11,13 @@ void sigintHandler(int sig)
 	exit(1);
 }
 
+struct rgbColor
+{
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+};
+
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, sigintHandler);
@@ -102,31 +109,14 @@ int hexToNum(char hex)
 		return 0;
 }
 
-void onMessagePostedCallback(struct message message)
+char *discordColorToHex(int color)
 {
-//	printf("Recieved new message!\n");
-//	printf("%s > %s\n", message.author->user->username, message.body);
-	
-	char array[7] = "000000";
-	int counter = 5;
-	// TODO make this safer etc
-	struct role *role = NULL;
-	struct roles *role_trav = message.author->roles;
+	char *array = malloc(7);
+	int counter = 5; // 6 char long hex
 
-	while (role_trav)
+	while(color!=0)
 	{
-		if (role == NULL || role_trav->role->position > role->position)
-			role = role_trav->role;
-
-		role_trav = role_trav->next;
-	}	
-
-	
-	int number = role->color;
-	
-	while(number!=0)
-	{
-		int result = number % 16;
+		int result = color % 16;
 		if (result < 10)
 		{
 			char s[5];
@@ -162,29 +152,55 @@ void onMessagePostedCallback(struct message message)
 			array[counter] = ' ';
 		}
 
-	   //array[counter]=number%16;
-	   number/=16;
-	   --counter;
-	   // *clamp* the value
+		//array[counter]=number%16;
+		color/=16;
+		--counter;
+		// *clamp* the value
 		if (counter < 0)
 			counter = 0;
 	}	
 	
 	// Add a null-terminator to the end
 	array[6] = '\0';
-	
-	uint8_t	r = hexToNum(array[0])*16+hexToNum(array[1]);
-	uint8_t g = hexToNum(array[2])*16+hexToNum(array[3]);
-	uint8_t b = hexToNum(array[4])*16+hexToNum(array[5]);
+	return array;
+}
 
-//	printf("color: %lu|$%s\n", message.author->roles->role->color,array);
+struct rgbColor hexToRgb(char *hex)
+{
+	uint8_t	r = hexToNum(hex[0])*16+hexToNum(hex[1]);
+	uint8_t g = hexToNum(hex[2])*16+hexToNum(hex[3]);
+	uint8_t b = hexToNum(hex[4])*16+hexToNum(hex[5]);
 
-	//printf("\e]4;1;rgb:%c%c/%c%c/%c%c\e\\\e[31m%s > %s\e[m\n", array[0], array[1], array[2], array[3], array[4], array[5], message.author->user->username, message.body);
-	//printf("\x1B]4;1;rgb:%c%c/%c%c/%c%c\e\\\e[31m%s > %s \x1B[0m\n", array[0], array[1], array[2], array[3], array[4], array[5], message.author->user->username, message.body);
+	struct rgbColor color;
+
+	color.r = r;
+	color.g = g;
+	color.b = b;
+
+	return color;
+}
+
+void onMessagePostedCallback(struct message message)
+{
+	// Find the highest role the user has
+	struct role *role = NULL;
+	struct roles *role_trav = message.author->roles;
+
+	while (role_trav)
+	{
+		if (role == NULL || role_trav->role->position > role->position)
+			role = role_trav->role;
+
+		role_trav = role_trav->next;
+	}	
+
+	// discord color -> rgb
+	char *hex = discordColorToHex(role->color);
+	struct rgbColor color = hexToRgb(hex);
+	free(hex);
 	
-//	printf("%lu|#%s|R:%i B:%i B: %i\n", role->color, array, r, g, b);
-//	printf("\x1b[38;2;%i;%i;%imTRUECOLOR\x1b[0m\n", r, g, b);
-	printf("\r\x1b[38;2;%i;%i;%im%s > %s > %s\x1b[0m\n", r, g, b, message.author->user->username, message.channel->name, message.body);
+	// Print the author, channel & message in the author's role's color
+	printf("\r\x1b[38;2;%i;%i;%im%s > %s > %s\x1b[0m\n", color.r, color.g, color.b, message.author->user->username, message.channel->name, message.body);
 
 }
 
