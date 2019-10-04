@@ -1,29 +1,11 @@
 # Discord-C
-A c discord API....that needs some work
+
+Discord API bindings for C99.
 
 ![Screenshot of example app](http://i.imgur.com/dLAEncM.png?1)
 
-# Build Discord-C
-### Build the library & example application
-Clone Discord-C
-###### git clone https://github.com/RealAlpha/discord-c.git
-###### cd discord-c
-Set your token by going to main.c and updating <YOUR TOKEN HERE> with your own token. (obtained from LocalStorage).
-Build Discord-C:
-###### make
-Run the Discord-C example:
-###### ./test
+# Building the library
 
-### Build the library
-Clone Discord-C
-###### git clone https://github.com/RealAlpha/discord-c.git
-###### cd discord-c/lib
-Build Discord-C:
-###### make
-The discord-c static library is libdiscord-c.a. To compile your Discord-C programs please use the following gcc/clang flags:
-###### -I/path/to/discord-c/lib -L/path/to/discord-c/lib -lwebsockets -lssl -lcrypto -lpthread -lcjson -lcurl -ldiscord-c
+Depends on [libwebsockets](https://libwebsockets.org/) and [cJSON](https://github.com/DaveGamble/cJSON). Build the library with `make`. This should output `libdiscord-c.a`, and `make test` will create a `discord-c-test` executable you can run for QA.
 
-# Please check out disclird, the (WIP) Discord CLI written in c!
-https://github.com/Audiatorix/Disclird
-
-Written by Alpha-V. Please open an issue if you're experiencing any issues/have feature suggestions!
+Discord-C was created by Alpha-V. You can contribute issues and PRs to its development [on GitHub](https://github.com/RealAlpha/discord-c).
