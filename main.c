@@ -2,6 +2,8 @@
 #include "stdio.h"
 #include "signal.h"
 
+#define DISCORD_AUTH_TOKEN "<YOUR TOKEN HERE>"
+
 void onMessagePostedCallback(struct message message);
 void onDMPostedCallback(struct DM_message message);
 void onReadyCallback(struct connection connection, struct server *server);
@@ -33,7 +35,7 @@ int main(int argc, char *argv[])
 	callbacks.presence_updated = NULL;
 	callbacks.DM_posted = onDMPostedCallback;
 
-	client_websocket_t *socket = createClient(&callbacks, "<YOUR TOKEN HERE>");
+	client_websocket_t *socket = createClient(&callbacks, DISCORD_AUTH_TOKEN);
 
 	// Test send message
 	sleep(20);
