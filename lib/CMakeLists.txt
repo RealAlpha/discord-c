@@ -15,10 +15,5 @@ FIND_PATH ( LIBWEBSOCKETS_INCLUDE_DIR libwebsockets.h
 )
 include_directories(${LIBWEBSOCKETS_INCLUDE_DIR})
 
-
 add_library (discord-c discord-c.c)
-
-TARGET_LINK_LIBRARIES (discord-c ${CJSON_LIBS})
-TARGET_LINK_LIBRARIES (discord-c ${LIBWEBSOCKETS_LIBS})
-TARGET_LINK_LIBRARIES (discord-c ${CURL_LIBS})
 
