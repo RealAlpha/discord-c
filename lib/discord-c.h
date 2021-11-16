@@ -4,7 +4,7 @@
 #include "stdlib.h"
 #include "string.h"
 #include "pthread.h"
-#include "cJSON.h"
+#include <cjson/cJSON.h>
 
 #include "signal.h"
 

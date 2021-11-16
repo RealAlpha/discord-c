@@ -3,7 +3,7 @@
 #include "stdlib.h"
 #include "string.h"
 #include "pthread.h"
-#include "cJSON.h"
+#include <cjson/cJSON.h>
 
 #include "signal.h"
 
@@ -409,7 +409,7 @@ void loadGuild(client_websocket_t *socket, uint64_t guildId)
 {
 	char packet[128];
 	// Send a guild sync (which should return member chunks?)
-	sprintf(packet, "{\"op\":12,\"d\":[\"%lu\"]}", guildId);
+	sprintf(packet, "{\"op\":12,\"d\":[\"%llu\"]}", guildId);
 
 	websocket_send(socket, packet, strlen(packet), 0);
 }
@@ -983,7 +983,7 @@ void sendMessage(/* TODO some kind of connection object?, */char *content, uint6
 
 		// Convert channel id into a messages url (TODO evaluate the connect ammount of characters)
 		char channelMessagesLink[85];
-		sprintf(channelMessagesLink, "https://discordapp.com/api/v6/channels/%lu/messages", channel);
+		sprintf(channelMessagesLink, "https://discordapp.com/api/v6/channels/%llu/messages", channel);
 
 		// Set the tts parameter to true or false
 		if (isTTS)
@@ -1071,7 +1071,7 @@ struct messages *getMessagesInChannel(uint64_t channel, int amount)
 	if (curl) {
 		// TODO make this buffer the correct size
 		char requestUri[80];
-		sprintf(requestUri, "https://discordapp.com/api/v6/channels/%ld/messages?limit=%i", channel, amount);
+		sprintf(requestUri, "https://discordapp.com/api/v6/channels/%lld/messages?limit=%i", channel, amount);
 		curl_easy_setopt(curl, CURLOPT_URL, requestUri);
 
 		// Add HTTP headers to correctly communicate with the discord API
